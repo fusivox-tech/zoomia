@@ -1,9 +1,8 @@
-// CartPage.jsx
-
+// CartPage.jsx - With item selection for checkout
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, CheckSquare, Square } from 'lucide-react';
 
 // Skeleton Loader Component
 const CartSkeleton = () => (
@@ -33,10 +32,19 @@ const CartSkeleton = () => (
 const CartPage = () => {
   const { cartItems, updateCartQuantity, removeFromCart, clearCart, user, loading } = useData();
   const [localCartItems, setLocalCartItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState({});
+  const [selectAll, setSelectAll] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     setLocalCartItems(cartItems);
+    // Initialize selected items - default select all
+    const initialSelected = {};
+    cartItems.forEach((_, index) => {
+      initialSelected[index] = true;
+    });
+    setSelectedItems(initialSelected);
+    setSelectAll(true);
   }, [cartItems]);
 
   const formatPrice = (price) => {
@@ -59,34 +67,66 @@ const CartPage = () => {
     }
   };
 
+  const handleToggleItem = (index) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+    // Update selectAll state
+    const newSelectedItems = { ...selectedItems, [index]: !selectedItems[index] };
+    const allSelected = Object.values(newSelectedItems).every(value => value === true);
+    setSelectAll(allSelected);
+  };
+
+  const handleToggleSelectAll = () => {
+    const newSelectAll = !selectAll;
+    setSelectAll(newSelectAll);
+    const newSelected = {};
+    localCartItems.forEach((_, index) => {
+      newSelected[index] = newSelectAll;
+    });
+    setSelectedItems(newSelected);
+  };
+
   const handleProceedToCheckout = () => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
     if (!token || !user) {
-      // Save current path to redirect back after login
       localStorage.setItem('redirectAfterLogin', '/payment');
       navigate('/login');
       return;
     }
     
+    // Check if any items are selected
+    const hasSelectedItems = Object.values(selectedItems).some(value => value === true);
+    if (!hasSelectedItems) {
+      alert('Please select at least one item to checkout');
+      return;
+    }
+    
+    // Store selected items in localStorage for payment page
+    const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
+    localStorage.setItem('selectedCartItems', JSON.stringify(selectedCartItems));
+    
     // User is logged in, proceed to payment
     navigate('/payment');
   };
 
-  // Calculate subtotal (sum of all item prices × quantity)
-  const subtotal = localCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // Get selected items for summary
+  const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
   
-  // Calculate shipping based on each product's individual shipping cost
-  const shipping = localCartItems.reduce((sum, item) => {
-    // If item has free shipping, add 0
+  // Calculate subtotal for selected items
+  const subtotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  
+  // Calculate shipping for selected items
+  const shipping = selectedCartItems.reduce((sum, item) => {
     if (item.shipping?.free) return sum + 0;
-    // Otherwise add the item's shipping cost multiplied by quantity
-    // (shipping cost is per item, so multiply by quantity)
     const itemShippingCost = item.shipping?.cost || 0;
     return sum + (itemShippingCost * item.quantity);
   }, 0);
   
   const total = subtotal + shipping;
+  const selectedCount = selectedCartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // Show skeleton while loading
   if (loading) {
@@ -136,11 +176,44 @@ const CartPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Cart Items */}
         <div className="lg:col-span-2">
+          {/* Select All Header */}
+          <div className="mb-3 flex items-center justify-between">
+            <button
+              onClick={handleToggleSelectAll}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-orange-500 transition"
+            >
+              {selectAll ? (
+                <CheckSquare className="w-5 h-5 text-orange-500" />
+              ) : (
+                <Square className="w-5 h-5" />
+              )}
+              <span>{selectAll ? 'Deselect All' : 'Select All'}</span>
+            </button>
+            <span className="text-xs text-gray-500">
+              {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
+            </span>
+          </div>
+
           <div className="border bg-white border-gray-200 rounded-lg">
             {localCartItems.map((item, index) => (
-              <div key={index} className="p-4 border-b border-gray-200 last:border-0">
-                <div className="flex gap-4">
-                  <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div key={index} className={`p-4 border-b border-gray-200 last:border-0 transition ${selectedItems[index] ? 'bg-white' : 'bg-gray-50'}`}>
+                <div className="flex md:flex-row flex-col gap-4">
+                  <div className="flex relative gap-4">
+                  {/* Checkbox */}
+                  <div className="flex-shrink-0 absolute top-1 h-7 w-7 bg-white p-1 left-1 rounded">
+                    <button
+                      onClick={() => handleToggleItem(index)}
+                      className="focus:outline-none"
+                    >
+                      {selectedItems[index] ? (
+                        <CheckSquare className="w-5 h-5 text-orange-500" />
+                      ) : (
+                        <Square className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                  
+                  <div className="w-24 h-24 bg-gray-100 rounded-lg flex border border-gray-200 items-center justify-center flex-shrink-0">
                     <img 
                       src={item.image || '/placeholder.png'} 
                       alt={item.title}
@@ -168,14 +241,16 @@ const CartPage = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
-                          className="p-1 border border-gray-300 rounded hover:border-orange-500 transition"
+                          className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50"
+                          disabled={!selectedItems[index]}
                         >
                           <Minus className="w-3 h-3" />
                         </button>
                         <span className="w-8 text-center text-gray-700">{item.quantity}</span>
                         <button
                           onClick={() => handleUpdateQuantity(index, item.quantity + 1)}
-                          className="p-1 border border-gray-300 rounded hover:border-orange-500 transition"
+                          className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50"
+                          disabled={!selectedItems[index]}
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -188,6 +263,7 @@ const CartPage = () => {
                         Remove
                       </button>
                     </div>
+                  </div>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-900">{formatPrice(item.price * item.quantity)}</p>
@@ -225,37 +301,49 @@ const CartPage = () => {
           </div>
         </div>
         
-        {/* Order Summary */}
+        {/* Order Summary - Only for selected items */}
         <div className="lg:col-span-1">
           <div className="border bg-white border-gray-200 rounded-lg p-6 sticky top-20">
-            <h2 className="text-xl font-bold mb-4">Order Summary</h2>
+            <h2 className="text-xl font-bold mb-4">
+              Order Summary
+            </h2>
             
-            <div className="space-y-3 mb-4 pb-4 border-b border-gray-200">
-              <div className="flex justify-between text-gray-600">
-                <span>Subtotal ({localCartItems.reduce((sum, item) => sum + item.quantity, 0)} items)</span>
-                <span className="font-medium">{formatPrice(subtotal)}</span>
+            {selectedCount === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">No items selected for checkout</p>
+                <button
+                  onClick={handleToggleSelectAll}
+                  className="text-orange-500 hover:text-orange-600 text-sm"
+                >
+                  Select all items
+                </button>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Shipping</span>
-                <span className="font-medium">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>
-              </div>
-            </div>
-            
-            <div className="flex justify-between text-xl font-bold mb-6">
-              <span>Total</span>
-              <span className="text-orange-600">{formatPrice(total)}</span>
-            </div>
-            
-            <button
-              onClick={handleProceedToCheckout}
-              className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition border-0"
-            >
-              Proceed to Checkout
-            </button>
-            
-            <p className="text-xs text-gray-500 text-center mt-4">
-              Shipping costs are calculated per item based on seller rates
-            </p>
+            ) : (
+              <>
+                <div className="space-y-3 mb-4 pb-4 border-b border-gray-200">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-medium">{formatPrice(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Shipping</span>
+                    <span className="font-medium">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between text-xl font-bold mb-6">
+                  <span>Total</span>
+                  <span className="text-orange-600">{formatPrice(total)}</span>
+                </div>
+                
+                <button
+                  onClick={handleProceedToCheckout}
+                  className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition border-0"
+                >
+                  Proceed to Checkout
+                </button>
+              </>
+            )}
             
             {!user && (
               <p className="text-xs text-center mt-4 text-orange-600">

@@ -1,5 +1,4 @@
-// PaymentVerification.jsx
-
+// PaymentVerification.jsx - Updated to avoid double-clearing
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -10,13 +9,17 @@ import { CheckCircle, XCircle, Loader } from 'lucide-react';
 const PaymentVerification = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { clearCart } = useData();
-  const [status, setStatus] = useState('verifying'); // verifying, success, failed
+  const { clearCart, fetchUserData } = useData();
+  const [status, setStatus] = useState('verifying');
   const [message, setMessage] = useState('');
   const [countdown, setCountdown] = useState(5);
+  const [hasProcessed, setHasProcessed] = useState(false);
 
   useEffect(() => {
-    verifyPayment();
+    if (!hasProcessed) {
+      setHasProcessed(true);
+      verifyPayment();
+    }
   }, []);
 
   useEffect(() => {
@@ -28,68 +31,70 @@ const PaymentVerification = () => {
     }
   }, [status, countdown, navigate]);
 
-// PaymentVerification.jsx - Update to handle platform fee
-
-const verifyPayment = async () => {
-  const reference = searchParams.get('reference');
-  
-  if (!reference) {
-    setStatus('failed');
-    setMessage('No payment reference found');
-    return;
-  }
-
-  try {
-    const response = await axios.get(`${API_BASE_URL}/payment/verify/${reference}`);
+  const verifyPayment = async () => {
+    const reference = searchParams.get('reference');
     
-    if (response.data.success) {
-      // Get the pending order data to know which items were purchased
-      const pendingOrderData = JSON.parse(localStorage.getItem('pendingOrderData') || '{}');
-      const purchasedItemIds = pendingOrderData.items?.map(item => item.productId) || [];
-      
-      // Only clear the purchased items from cart, not the entire cart
-      const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
-      const remainingCart = currentCart.filter(item => !purchasedItemIds.includes(item.id));
-      
-      // Update localStorage
-      localStorage.setItem('cart', JSON.stringify(remainingCart));
-      
-      // If user is logged in, sync with backend
-      const token = localStorage.getItem('token');
-      if (token) {
-        await axios.post(`${API_BASE_URL}/cart/sync`, 
-          { items: remainingCart },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-      
-      // Save order confirmation (including platform fee info)
-      const orderConfirmation = {
-        reference: reference,
-        amount: response.data.data.amount / 100,
-        platformFee: (response.data.data.amount / 100) * 0.05,
-        items: pendingOrderData.items,
-        deliveryAddress: pendingOrderData.deliveryAddress,
-        orderDate: new Date().toISOString()
-      };
-      localStorage.setItem('lastOrder', JSON.stringify(orderConfirmation));
-      
-      // Clear pending data
-      localStorage.removeItem('pendingPaymentRef');
-      localStorage.removeItem('pendingOrderData');
-      
-      setStatus('success');
-      setMessage(response.data.message || 'Payment successful! Your order has been placed.');
-    } else {
+    if (!reference) {
       setStatus('failed');
-      setMessage(response.data.message || 'Payment verification failed');
+      setMessage('No payment reference found');
+      return;
     }
-  } catch (error) {
-    console.error('Verification error:', error);
-    setStatus('failed');
-    setMessage(error.response?.data?.message || 'Failed to verify payment');
-  }
-};
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/payment/verify/${reference}`);
+      
+      if (response.data.success) {
+        // Get the pending order data to know which items were purchased
+        const pendingOrderData = JSON.parse(localStorage.getItem('pendingOrderData') || '{}');
+        const purchasedItemIds = pendingOrderData.items?.map(item => item.productId) || [];
+        
+        // Only clear the purchased items from cart, not the entire cart
+        const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const remainingCart = currentCart.filter(item => !purchasedItemIds.includes(item.id));
+        
+        // Update localStorage
+        localStorage.setItem('cart', JSON.stringify(remainingCart));
+        
+        // If user is logged in, sync with backend (backend will also filter purchased items)
+        const token = localStorage.getItem('token');
+        if (token) {
+          await axios.post(`${API_BASE_URL}/cart/sync`, 
+            { items: remainingCart },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          // Refresh user data to update cart count in UI
+          if (fetchUserData) {
+            fetchUserData();
+          }
+        }
+        
+        // Save order confirmation
+        const orderConfirmation = {
+          reference: reference,
+          amount: response.data.data.amount / 100,
+          items: pendingOrderData.items,
+          deliveryAddress: pendingOrderData.deliveryAddress,
+          orderDate: new Date().toISOString()
+        };
+        localStorage.setItem('lastOrder', JSON.stringify(orderConfirmation));
+        
+        // Clear pending data
+        localStorage.removeItem('pendingPaymentRef');
+        localStorage.removeItem('pendingOrderData');
+        
+        setStatus('success');
+        setMessage(response.data.message || 'Payment successful! Your order has been placed.');
+      } else {
+        setStatus('failed');
+        setMessage(response.data.message || 'Payment verification failed');
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      setStatus('failed');
+      setMessage(error.response?.data?.message || 'Failed to verify payment');
+    }
+  };
 
   if (status === 'verifying') {
     return (

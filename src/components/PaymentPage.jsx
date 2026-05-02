@@ -1,10 +1,10 @@
-// PaymentPage.jsx - Platform fee removed, address location validation added
-import { useState, useEffect } from 'react';
+// PaymentPage.jsx - Fixed to properly handle selected items
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, ArrowLeft, Loader, AlertCircle, MapPin, User, Phone, Truck, ShoppingBag } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
-import API_BASE_URL from '../config';
 import axios from 'axios';
+import API_BASE_URL from '../config';
 
 const PaymentPage = () => {
   const { cartItems, clearCart, user, getAuthHeaders } = useData();
@@ -22,44 +22,73 @@ const PaymentPage = () => {
   const [buyerLocation, setBuyerLocation] = useState({ city: '', state: '' });
   const [addressLocationValid, setAddressLocationValid] = useState(true);
   const [invalidItems, setInvalidItems] = useState([]);
+  const [itemsProcessed, setItemsProcessed] = useState(false);
+  const hasProcessed = useRef(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!cartItems || cartItems.length === 0) {
-      const savedCart = localStorage.getItem('cart');
-      if (!savedCart || JSON.parse(savedCart).length === 0) {
-        navigate('/cart');
-        return;
-      }
+    // Only run once to prevent re-fetching
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
+    
+    // Get items to checkout from localStorage (selected from cart page)
+    const selectedItemsStr = localStorage.getItem('selectedCartItems');
+    let items = [];
+    
+    if (selectedItemsStr) {
+      items = JSON.parse(selectedItemsStr);
+      // Clear immediately after reading to prevent reuse
+      localStorage.removeItem('selectedCartItems');
+    } else {
+      // If no selected items, redirect back to cart
+      navigate('/cart');
+      return;
     }
     
+    if (items.length === 0) {
+      navigate('/cart');
+      return;
+    }
+    
+    setItemsProcessed(true);
+    
+    // Check if user is logged in
     const token = localStorage.getItem('token');
     if (!token || !user) {
       navigate('/cart');
       return;
     }
     
+    // Get buyer's saved location
     const savedCity = localStorage.getItem('buyerCity');
     const savedState = localStorage.getItem('buyerState');
     if (savedCity && savedState) {
       setBuyerLocation({ city: savedCity, state: savedState });
     }
     
+    // Fetch user data and validate cart items
     fetchUserData();
-    validateCartItems();
-  }, [cartItems, navigate, user]);
+    validateCartItems(items);
+  }, [navigate, user]);
 
-  const validateCartItems = async () => {
+  const validateCartItems = async (items) => {
     setValidatingItems(true);
     setValidationError('');
     setInvalidItems([]);
     
     try {
       const token = localStorage.getItem('token');
+      
+      if (!items || items.length === 0) {
+        throw new Error('No items to validate');
+      }
+      
       const validatedItemsList = [];
       const invalidItemsList = [];
       
-      for (const item of cartItems) {
+      for (const item of items) {
+        // Fetch fresh product data from backend
         const response = await axios.get(`${API_BASE_URL}/products/${item.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -74,16 +103,19 @@ const PaymentPage = () => {
         const selectedVariant = item.variant;
         let currentStock = product.stock;
         let currentPrice = product.price;
+        let variantData = null;
         
         if (selectedVariant) {
-          const variant = product.variants?.find(v => v.id === selectedVariant.id);
+          const variant = product.variants?.find(v => v.id === selectedVariant.id || v.name === selectedVariant.name);
           if (!variant) {
             throw new Error(`Variant ${selectedVariant.name} no longer available for ${product.title}`);
           }
           currentStock = variant.stock;
           currentPrice = variant.price;
+          variantData = variant;
         }
         
+        // Check stock availability
         if (currentStock < item.quantity) {
           throw new Error(`${product.title} only has ${currentStock} items in stock`);
         }
@@ -98,15 +130,35 @@ const PaymentPage = () => {
           });
         }
         
+        // Get delivery price based on buyer's location
         const deliveryPrice = getDeliveryPriceForLocation(product, buyerLocation.city, buyerLocation.state);
+        
+        // Calculate bulk discount if applicable
         const discountInfo = getBulkDiscount(product, item.quantity, buyerLocation.city, buyerLocation.state);
         
+        // Get the shipping info
+        const shippingInfo = product.shipping || { free: false, cost: 0, estimatedDays: null };
+        
         validatedItemsList.push({
-          ...item,
+          id: item.id,
+          title: item.title,
+          quantity: item.quantity,
+          price: item.price,
           validatedPrice: currentPrice,
           validatedStock: currentStock,
+          image: item.image,
+          variant: selectedVariant ? {
+            ...selectedVariant,
+            price: currentPrice,
+            stock: currentStock
+          } : null,
+          variantData: variantData,
+          sellerId: product.sellerId,
+          sellerName: product.sellerName,
+          sellerEmail: product.sellerEmail,
           deliveryPrice: deliveryPrice,
           discountInfo: discountInfo,
+          shipping: shippingInfo,
           finalPrice: calculateItemFinalPrice(currentPrice, deliveryPrice, discountInfo, item.quantity),
           productData: product,
           deliveryAvailable: isDeliveryAvailable
@@ -118,7 +170,7 @@ const PaymentPage = () => {
       setAddressLocationValid(invalidItemsList.length === 0);
       
       if (invalidItemsList.length > 0) {
-        setValidationError(`Some items cannot be delivered to ${buyerLocation.city}`);
+        setValidationError(`Some items cannot be delivered to ${buyerLocation.city || 'your location'}`);
       }
     } catch (error) {
       console.error('Error validating cart items:', error);
@@ -302,6 +354,7 @@ const PaymentPage = () => {
         variant: item.variant,
         sellerId: item.sellerId,
         sellerName: item.sellerName,
+        sellerEmail: item.sellerEmail,
         deliveryPrice: item.deliveryPrice,
         discountApplied: item.discountInfo.enabled ? item.discountInfo : null,
         finalProductPrice: item.finalPrice.unitProductPrice,
@@ -406,7 +459,7 @@ const PaymentPage = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
         <ShoppingBag className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-        <p className="text-gray-500 text-lg">Your cart is empty</p>
+        <p className="text-gray-500 text-lg">No items to checkout</p>
         <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
           Continue Shopping
         </button>
