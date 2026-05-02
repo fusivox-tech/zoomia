@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-display: sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+.scrollbar-hide::-webkit-scrollbar-width {
+  display: none;
+}
