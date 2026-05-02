@@ -1,4 +1,4 @@
-// SearchPage.jsx - With 50 products per page and pagination
+// SearchPage.jsx - Search and filter always visible, even when no products
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
@@ -137,6 +137,17 @@ const SearchPage = () => {
     }).format(price);
   };
 
+  const ProductSkeleton = () => (
+    <div className="w-full animate-pulse">
+      <div className="aspect-square bg-gray-200 rounded-lg"></div>
+      <div className="pt-3 space-y-2">
+        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        <div className="h-5 bg-gray-200 rounded w-1/2"></div>
+      </div>
+    </div>
+  );
+
+  // No location selected - show only the location prompt (no search/filters)
   if (!hasLocation && !loading && initialLoadDone) {
     return (
       <div className="w-full max-w-7xl mx-auto px-4 py-12">
@@ -164,39 +175,9 @@ const SearchPage = () => {
     );
   }
 
-  if (!loading && products.length === 0 && hasLocation && initialLoadDone) {
-    return (
-      <div className="w-full max-w-7xl mx-auto px-4 py-12">
-        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-          <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            No products found
-          </h2>
-          <p className="text-gray-500 mb-4">
-            We couldn't find any products matching your criteria in {buyerLocation?.city}.
-          </p>
-          <button onClick={clearFilters} className="text-orange-500 hover:text-orange-600">
-            Clear filters and try again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const ProductSkeleton = () => (
-    <div className="w-full animate-pulse">
-      <div className="aspect-square bg-gray-200"></div>
-      <div className="pt-3 space-y-2">
-        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        <div className="h-5 bg-gray-200 rounded w-1/2"></div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-8">
-
-      {/* Search Header */}
+    <div className="w-full max-w-7xl mx-auto px-4 py-4">
+      {/* Search Header - Always visible */}
       <div className="w-full mb-8">
         <h1 className="text-2xl font-bold mb-4">
           {selectedCategory ? selectedCategory : (searchTerm ? `Search: ${searchTerm}` : 'All Products')}
@@ -225,7 +206,7 @@ const SearchPage = () => {
         </form>
       </div>
 
-      {/* Filters Panel */}
+      {/* Filters Panel - Always visible when toggled */}
       {showFilters && (
         <div className="w-full border border-gray-200 rounded-lg p-4 mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -263,7 +244,7 @@ const SearchPage = () => {
             
             <div>
               <label className="block text-sm font-medium mb-2">Price Range (₦)</label>
-              <div className="flex gap-2">
+              <div className="flex flex-col md:flex-row gap-2">
                 <input
                   type="number"
                   placeholder="Min"
@@ -271,7 +252,7 @@ const SearchPage = () => {
                   onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
                 />
-                <span className="self-center">-</span>
+                <span className="self-center hidden md:inline-block">-</span>
                 <input
                   type="number"
                   placeholder="Max"
@@ -292,23 +273,42 @@ const SearchPage = () => {
         </div>
       )}
 
-      {/* Results Count */}
-      {!loading && (
+      {/* Results Count - Only show when not loading and products exist */}
+      {!loading && products.length > 0 && (
         <div className="w-full mb-4 text-gray-600">
           Showing {products.length} of {pagination.total} product{pagination.total !== 1 ? 's' : ''}
           {buyerLocation?.city && ` in ${buyerLocation.city}`}
         </div>
       )}
 
-      {/* Products Grid */}
+      {/* Products Grid or No Results Message */}
       <div className="w-full">
-        {loading && products.length === 0 ? (
+        {loading ? (
+          // Loading skeletons
           <div className="w-full grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {[...Array(20)].map((_, index) => (
               <ProductSkeleton key={index} />
             ))}
           </div>
+        ) : products.length === 0 ? (
+          // No results message - Search and filters remain visible above
+          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+            <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              No products found
+            </h2>
+            <p className="text-gray-500 mb-4 max-w-md mx-auto">
+              We couldn't find any products matching your criteria{ buyerLocation?.city ? ` in ${buyerLocation.city}` : '' }.
+            </p>
+            <button 
+              onClick={clearFilters} 
+              className="text-orange-500 hover:text-orange-600 font-medium"
+            >
+              Clear all filters
+            </button>
+          </div>
         ) : (
+          // Products grid
           <>
             <div className="w-full grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {products.map((product) => (

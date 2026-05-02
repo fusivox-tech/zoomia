@@ -263,7 +263,7 @@ const ProductDetail = () => {
   // Show skeleton while loading
   if (loading) {
     return (
-      <div className="w-full px-4 py-8">
+      <div className="w-full px-4 py-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <ImageSkeleton />
@@ -450,19 +450,12 @@ const ProductDetail = () => {
                   <p className="text-xs text-gray-500">7-day return policy</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-gray-500" />
-                <div>
-                  <p className="text-sm font-medium">Warranty</p>
-                  <p className="text-xs text-gray-500">1-year warranty included</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
         
         {/* Product Description with Expand/Collapse */}
-        <div className="bg-white p-4 mt-8 border-t border-gray-200">
+        <div className="bg-white p-4 mt-4 border-t border-gray-200">
           <h2 className="text-xl font-bold mb-4">Product Description</h2>
           <div className="prose max-w-none">
             <div className="text-gray-600 leading-relaxed">
@@ -495,7 +488,7 @@ const ProductDetail = () => {
         
         {/* Product Details Table */}
         {(product.brand || product.sku || product.weight || (product.dimensions?.length && product.dimensions.length !== '')) && (
-          <div className="bg-white p-4 mt-8 border-t border-gray-200">
+          <div className="bg-white p-4 mt-4 border-t border-gray-200">
             <h2 className="text-xl font-bold mb-4">Product Details</h2>
             <div className="border border-gray-200">
               <table className="w-full">
