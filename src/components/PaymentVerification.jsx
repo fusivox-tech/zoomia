@@ -28,7 +28,8 @@ const PaymentVerification = () => {
     }
   }, [status, countdown, navigate]);
 
-// Update the verifyPayment function in PaymentVerification.jsx
+// PaymentVerification.jsx - Update to handle platform fee
+
 const verifyPayment = async () => {
   const reference = searchParams.get('reference');
   
@@ -61,6 +62,17 @@ const verifyPayment = async () => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
+      
+      // Save order confirmation (including platform fee info)
+      const orderConfirmation = {
+        reference: reference,
+        amount: response.data.data.amount / 100,
+        platformFee: (response.data.data.amount / 100) * 0.05,
+        items: pendingOrderData.items,
+        deliveryAddress: pendingOrderData.deliveryAddress,
+        orderDate: new Date().toISOString()
+      };
+      localStorage.setItem('lastOrder', JSON.stringify(orderConfirmation));
       
       // Clear pending data
       localStorage.removeItem('pendingPaymentRef');

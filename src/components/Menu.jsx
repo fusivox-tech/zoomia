@@ -47,7 +47,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
           <button onClick={() => {
            navigate('/seller');
            setIsMenuOpen(false);
-          }} className="text-left">LIST A PRODUCT</button>
+          }} className="text-left">SELL ON ZOOMIA</button>
           <button className="text-left">CONTACT SUPPORT</button>
         </div>
       </div>

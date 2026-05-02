@@ -231,13 +231,14 @@ export const DataProvider = ({ children }) => {
     fetchUserData();
   }, [fetchUserData]);
 
-// Update the login handler to include phone
+// Update handleLoginSuccess in DataContext.jsx
 const handleLoginSuccess = (userData) => {
   setUser({
     id: userData.id,
     userId: userData.userId,
     email: userData.email,
     fullName: userData.fullName,
+    businessName: userData.businessName || userData.fullName,
     profileImage: userData.profileImage,
     phone: userData.phone || '',
   });
@@ -246,6 +247,7 @@ const handleLoginSuccess = (userData) => {
     userId: userData.userId,
     email: userData.email,
     fullName: userData.fullName,
+    businessName: userData.businessName || userData.fullName,
     profileImage: userData.profileImage,
     phone: userData.phone || '',
   }));
@@ -269,12 +271,12 @@ const updateUserProfile = async (profileData) => {
   }
 };
 
-  const handleLogout = useCallback(() => {
+  const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
     localStorage.removeItem("userEmail");
     setUser(null);
-    loadLocalCart(); // Switch to local cart after logout
+    loadLocalCart();
   }, [loadLocalCart]);
 
   const value = {
@@ -288,7 +290,7 @@ const updateUserProfile = async (profileData) => {
     removeFromCart,
     clearCart,
     handleLoginSuccess,
-    handleLogout,
+    logout,
     refetchUser: fetchUserData,
     updateUserProfile
   };

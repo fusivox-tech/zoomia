@@ -69,7 +69,7 @@ const LoginPage = ({ onLoginSuccess }) => {
       <div className="max-w-md w-full md:bg-white p-8 mb-40">
         {/* Logo/Brand */}
         <div className="text-center mb-8 flex flex-col items-center">
-          <img src="icon.png" className="w-40 h-40 mb-20" />
+          <img src="icon.png" className="w-40 h-40 mb-10" />
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome</h1>
           <p className="text-gray-600">Sign in with your google account</p>
         </div>

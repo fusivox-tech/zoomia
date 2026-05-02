@@ -1,12 +1,23 @@
-import { Menu, X, User, CircleHelp, ShoppingCart, ChevronDown, Search } from 'lucide-react';
-import { useState } from 'react';
+// NavBar.jsx
+import { Menu, X, User, CircleHelp, ShoppingCart, ChevronDown, Search, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 
 const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [buyerLocation, setBuyerLocation] = useState(null);
   const navigate = useNavigate();
   const { cartCount, user } = useData();
+
+  useEffect(() => {
+    // Load buyer's saved location
+    const savedCity = localStorage.getItem('buyerCity');
+    const savedState = localStorage.getItem('buyerState');
+    if (savedCity && savedState) {
+      setBuyerLocation({ city: savedCity, state: savedState });
+    }
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -44,6 +55,16 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
           </form>
           
           <div className="flex items-center gap-4">
+            {/* Location Indicator */}
+            {buyerLocation && (
+              <div className="hidden md:flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-lg">
+                <MapPin className="w-4 h-4 text-orange-500" />
+                <span className="text-xs text-gray-600">
+                  {buyerLocation.city}
+                </span>
+              </div>
+            )}
+            
             <button onClick={() => navigate('/profile')} className="flex items-center gap-2">
               <User className="w-5 h-5" />
               <div className="hidden md:flex items-center gap-2">
@@ -79,6 +100,16 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
             </button>
           </div>
         </form>
+        
+        {/* Mobile Location Indicator */}
+        {buyerLocation && (
+          <div className="md:hidden mt-2 flex items-center justify-end gap-1">
+            <MapPin className="w-3 h-3 text-orange-500" />
+            <span className="text-xs text-gray-500">
+              {buyerLocation.city}, {buyerLocation.state}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

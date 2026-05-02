@@ -1,11 +1,9 @@
-// ProductDetail.jsx
-
+// ProductDetail.jsx - With location-based shipping cost
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import API_BASE_URL from '../config';
 import { useData } from '../contexts/DataContext';
-import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 
 // Skeleton Loader Components
 const ImageSkeleton = () => (
@@ -45,16 +43,9 @@ const InfoSkeleton = () => (
 const cleanDescription = (text) => {
   if (!text) return '';
   
-  // Replace multiple newlines with single newline
   let cleaned = text.replace(/\n\s*\n\s*\n/g, '\n\n');
-  
-  // Remove excessive spaces between paragraphs
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-  
-  // Trim whitespace from start and end
   cleaned = cleaned.trim();
-  
-  // Split into paragraphs and filter out empty ones
   const paragraphs = cleaned.split('\n').filter(p => p.trim().length > 0);
   
   return paragraphs;
@@ -67,7 +58,6 @@ const FormattedDescription = ({ text, isExpanded, previewLength = 300 }) => {
   
   if (!isExpanded && fullText.length > previewLength) {
     let truncated = fullText.substring(0, previewLength);
-    // Cut at the last space to avoid cutting words
     const lastSpace = truncated.lastIndexOf(' ');
     if (lastSpace > 0) {
       truncated = truncated.substring(0, lastSpace);
@@ -98,25 +88,76 @@ const ProductDetail = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  
+  // Location states
+  const [buyerLocation, setBuyerLocation] = useState(null);
+  const [deliveryPrice, setDeliveryPrice] = useState(0);
+  const [isLocationLoading, setIsLocationLoading] = useState(true);
+
+  // Load user's location from localStorage
+  useEffect(() => {
+    const savedCity = localStorage.getItem('buyerCity');
+    const savedState = localStorage.getItem('buyerState');
+    const locationSelected = localStorage.getItem('locationSelected');
+    
+    if (savedCity && savedState && locationSelected === 'true') {
+      setBuyerLocation({ city: savedCity, state: savedState });
+    }
+    setIsLocationLoading(false);
+  }, []);
 
   useEffect(() => {
     fetchProduct();
   }, [id]);
 
+  // Calculate delivery price whenever product or buyer location changes
+  useEffect(() => {
+    if (product && buyerLocation) {
+      calculateDeliveryPrice();
+    }
+  }, [product, buyerLocation]);
+
   const fetchProduct = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/products/${id}`);
-      if (response.data.success) {
-        setProduct(response.data.data);
-        if (response.data.data.variants?.length > 0) {
-          setSelectedVariant(response.data.data.variants[0]);
+      // Add location to the request if available
+      let url = `${API_BASE_URL}/products/${id}`;
+      if (buyerLocation) {
+        url += `?city=${encodeURIComponent(buyerLocation.city)}&state=${encodeURIComponent(buyerLocation.state)}`;
+      }
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.success) {
+        setProduct(data.data);
+        if (data.data.variants?.length > 0) {
+          setSelectedVariant(data.data.variants[0]);
         }
       }
     } catch (error) {
       console.error('Error fetching product:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const calculateDeliveryPrice = () => {
+    if (!product || !buyerLocation) return;
+    
+    // Check if product has specific delivery zone for this location
+    const deliveryZone = product.deliveryZones?.find(
+      zone => zone.city?.toLowerCase() === buyerLocation.city?.toLowerCase() && 
+              zone.state?.toLowerCase() === buyerLocation.state?.toLowerCase()
+    );
+    
+    if (deliveryZone && deliveryZone.price !== undefined) {
+      setDeliveryPrice(deliveryZone.price);
+    } else if (product.shipping?.cost !== undefined) {
+      // Fallback to default shipping cost
+      setDeliveryPrice(product.shipping.cost || 0);
+    } else {
+      setDeliveryPrice(0);
     }
   };
 
@@ -149,7 +190,11 @@ const ProductDetail = () => {
       variant: selectedVariant,
       sellerId: product.sellerId,
       sellerName: product.sellerName,
-      maxStock: getCurrentStock()
+      maxStock: getCurrentStock(),
+      shipping: {
+        ...product.shipping,
+        cost: deliveryPrice
+      }
     };
     
     addToCart(cartItem);
@@ -172,14 +217,17 @@ const ProductDetail = () => {
       variant: selectedVariant,
       sellerId: product.sellerId,
       sellerName: product.sellerName,
-      maxStock: getCurrentStock()
+      maxStock: getCurrentStock(),
+      shipping: {
+        ...product.shipping,
+        cost: deliveryPrice
+      }
     };
     
     addToCart(cartItem);
     navigate('/cart');
   };
 
-  // Check if description needs truncation
   const getDescriptionLength = () => {
     if (!product?.description) return 0;
     const cleaned = cleanDescription(product.description);
@@ -188,6 +236,29 @@ const ProductDetail = () => {
 
   const descriptionLength = getDescriptionLength();
   const needsTruncation = descriptionLength > 300;
+
+  // Show location warning if no location selected
+  if (!isLocationLoading && !buyerLocation && !loading) {
+    return (
+      <div className="w-full max-w-7xl mx-auto px-4 py-12">
+        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+          <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Delivery Location Required
+          </h2>
+          <p className="text-gray-500 mb-4 max-w-md mx-auto">
+            Please set your delivery location to see accurate shipping costs and proceed with purchase.
+          </p>
+          <button
+            onClick={() => navigate('/profile')}
+            className="px-6 py-2 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600"
+          >
+            Set Delivery Location
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Show skeleton while loading
   if (loading) {
@@ -219,10 +290,12 @@ const ProductDetail = () => {
 
   const currentPrice = getCurrentPrice();
   const currentStock = getCurrentStock();
+  const isFreeShipping = product.shipping?.free || deliveryPrice === 0;
 
   return (
     <div className="px-4 py-4">
       <div className="max-w-7xl mx-auto">
+
         <div className="bg-white border border-gray-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Image Gallery */}
           <div>
@@ -251,16 +324,6 @@ const ProductDetail = () => {
           {/* Product Info */}
           <div>
             <h1 className="text-xl font-bold mb-2">{product.title}</h1>
-            
-            {/* Rating */}
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-4 h-4 ${i < (product.sellerRating || 0) ? 'fill-orange-500 text-orange-500' : 'text-gray-300'}`} />
-                ))}
-              </div>
-              <span className="text-sm text-gray-500">({product.totalReviews || 0} reviews)</span>
-            </div>
             
             {/* Price */}
             <div className="mb-4">
@@ -359,16 +422,25 @@ const ProductDetail = () => {
               </div>
             )}
             
-            {/* Shipping Info */}
+            {/* Shipping Info - Now shows location-based delivery price */}
             <div className="border-t border-gray-200 pt-4 space-y-3">
               <div className="flex items-center gap-3">
                 <Truck className="w-5 h-5 text-gray-500" />
                 <div>
-                  <p className="text-sm font-medium">Shipping</p>
+                  <p className="text-sm font-medium">Shipping to {buyerLocation?.city}</p>
                   <p className="text-xs text-gray-500">
-                    {product.shipping?.free ? 'Free shipping' : `₦${product.shipping?.cost?.toLocaleString() || 0} shipping`}
-                    {product.shipping?.estimatedDays && ` • Estimated ${product.shipping.estimatedDays} days`}
+                    {isFreeShipping ? (
+                      <span className="text-green-600">Free shipping</span>
+                    ) : (
+                      <>
+                        ₦{deliveryPrice.toLocaleString()} delivery fee
+                        {product.shipping?.estimatedDays && ` • Estimated ${product.shipping.estimatedDays} days`}
+                      </>
+                    )}
                   </p>
+                  {!buyerLocation && (
+                    <p className="text-xs text-orange-500 mt-1">Please set your delivery location</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
