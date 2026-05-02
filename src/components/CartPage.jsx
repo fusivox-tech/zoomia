@@ -1,4 +1,4 @@
-// CartPage.jsx - With item selection for checkout
+// CartPage.jsx - Pass calculated delivery fees to checkout
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -38,7 +38,6 @@ const CartPage = () => {
 
   useEffect(() => {
     setLocalCartItems(cartItems);
-    // Initialize selected items - default select all
     const initialSelected = {};
     cartItems.forEach((_, index) => {
       initialSelected[index] = true;
@@ -72,7 +71,6 @@ const CartPage = () => {
       ...prev,
       [index]: !prev[index]
     }));
-    // Update selectAll state
     const newSelectedItems = { ...selectedItems, [index]: !selectedItems[index] };
     const allSelected = Object.values(newSelectedItems).every(value => value === true);
     setSelectAll(allSelected);
@@ -88,55 +86,75 @@ const CartPage = () => {
     setSelectedItems(newSelected);
   };
 
-  const handleProceedToCheckout = () => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    if (!token || !user) {
-      localStorage.setItem('redirectAfterLogin', '/payment');
-      navigate('/login');
-      return;
-    }
-    
-    // Check if any items are selected
-    const hasSelectedItems = Object.values(selectedItems).some(value => value === true);
-    if (!hasSelectedItems) {
-      alert('Please select at least one item to checkout');
-      return;
-    }
-    
-    // Store selected items in localStorage for payment page
-    const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
-    localStorage.setItem('selectedCartItems', JSON.stringify(selectedCartItems));
-    
-    // User is logged in, proceed to payment
-    navigate('/payment');
-  };
-
-  // Get selected items for summary
+const handleProceedToCheckout = () => {
+  const token = localStorage.getItem('token');
+  if (!token || !user) {
+    localStorage.setItem('redirectAfterLogin', '/payment');
+    navigate('/login');
+    return;
+  }
+  
+  const hasSelectedItems = Object.values(selectedItems).some(value => value === true);
+  if (!hasSelectedItems) {
+    alert('Please select at least one item to checkout');
+    return;
+  }
+  
   const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
   
-  // Calculate subtotal for selected items
-  const subtotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const itemsForCheckout = selectedCartItems.map(item => {
+    const itemShippingCost = item.shipping?.free ? 0 : (item.shipping?.cost || 0);
+    const totalShipping = itemShippingCost * item.quantity;
+    const totalProductPrice = item.price * item.quantity;
+    
+    return {
+      ...item,
+      calculatedShipping: totalShipping,
+      calculatedSubtotal: totalProductPrice,
+      calculatedTotal: totalProductPrice + totalShipping,
+      perItemShipping: itemShippingCost,
+      // Ensure seller email is included - try multiple sources
+      sellerEmail: item.sellerEmail || item.productData?.sellerEmail || user?.email,
+      sellerName: item.sellerName || user?.fullName || 'Seller'
+    };
+  });
   
-  // Calculate shipping for selected items
+  // Store seller emails separately for easy access
+  const sellerEmails = [...new Set(itemsForCheckout.map(item => item.sellerEmail).filter(email => email))];
+  
+  const overallSubtotal = itemsForCheckout.reduce((sum, item) => sum + item.calculatedSubtotal, 0);
+  const overallShipping = itemsForCheckout.reduce((sum, item) => sum + item.calculatedShipping, 0);
+  const overallTotal = overallSubtotal + overallShipping;
+  
+  localStorage.setItem('selectedCartItems', JSON.stringify(itemsForCheckout));
+  localStorage.setItem('sellerEmails', JSON.stringify(sellerEmails));
+  localStorage.setItem('checkoutTotals', JSON.stringify({
+    subtotal: overallSubtotal,
+    shipping: overallShipping,
+    total: overallTotal,
+    itemCount: itemsForCheckout.reduce((sum, item) => sum + item.quantity, 0)
+  }));
+  
+  navigate('/payment');
+};
+
+  const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
+  
+  const subtotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const shipping = selectedCartItems.reduce((sum, item) => {
     if (item.shipping?.free) return sum + 0;
     const itemShippingCost = item.shipping?.cost || 0;
     return sum + (itemShippingCost * item.quantity);
   }, 0);
-  
   const total = subtotal + shipping;
   const selectedCount = selectedCartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Show skeleton while loading
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-8">Shopping Cart</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <CartSkeleton />
-          </div>
+          <div className="lg:col-span-2"><CartSkeleton /></div>
           <div className="lg:col-span-1">
             <div className="border border-gray-200 p-6 animate-pulse">
               <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -159,10 +177,7 @@ const CartPage = () => {
         <ShoppingBag className="w-16 h-16 mx-auto text-gray-400 mb-4" />
         <h2 className="text-2xl font-bold mb-2">Your cart is empty</h2>
         <p className="text-gray-500 mb-4">Looks like you haven't added any items yet</p>
-        <button 
-          onClick={() => navigate('/')}
-          className="px-6 py-2 bg-orange-500 text-white hover:bg-orange-600 transition border-0 rounded-lg"
-        >
+        <button onClick={() => navigate('/')} className="px-6 py-2 bg-orange-500 text-white hover:bg-orange-600 transition border-0 rounded-lg">
           Continue Shopping
         </button>
       </div>
@@ -174,24 +189,13 @@ const CartPage = () => {
       <h1 className="text-2xl font-bold mb-4">Shopping Cart</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Cart Items */}
         <div className="lg:col-span-2">
-          {/* Select All Header */}
           <div className="mb-3 flex items-center justify-between">
-            <button
-              onClick={handleToggleSelectAll}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-orange-500 transition"
-            >
-              {selectAll ? (
-                <CheckSquare className="w-5 h-5 text-orange-500" />
-              ) : (
-                <Square className="w-5 h-5" />
-              )}
+            <button onClick={handleToggleSelectAll} className="flex items-center gap-2 text-sm text-gray-600 hover:text-orange-500 transition">
+              {selectAll ? <CheckSquare className="w-5 h-5 text-orange-500" /> : <Square className="w-5 h-5" />}
               <span>{selectAll ? 'Deselect All' : 'Select All'}</span>
             </button>
-            <span className="text-xs text-gray-500">
-              {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
-            </span>
+            <span className="text-xs text-gray-500">{selectedCount} item{selectedCount !== 1 ? 's' : ''} selected</span>
           </div>
 
           <div className="border bg-white border-gray-200 rounded-lg">
@@ -199,79 +203,42 @@ const CartPage = () => {
               <div key={index} className={`p-4 border-b border-gray-200 last:border-0 transition ${selectedItems[index] ? 'bg-white' : 'bg-gray-50'}`}>
                 <div className="flex md:flex-row flex-col gap-4">
                   <div className="flex relative gap-4">
-                  {/* Checkbox */}
-                  <div className="flex-shrink-0 absolute top-1 h-7 w-7 bg-white p-1 left-1 rounded">
-                    <button
-                      onClick={() => handleToggleItem(index)}
-                      className="focus:outline-none"
-                    >
-                      {selectedItems[index] ? (
-                        <CheckSquare className="w-5 h-5 text-orange-500" />
-                      ) : (
-                        <Square className="w-5 h-5 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                  
-                  <div className="w-24 h-24 bg-gray-100 rounded-lg flex border border-gray-200 items-center justify-center flex-shrink-0">
-                    <img 
-                      src={item.image || '/placeholder.png'} 
-                      alt={item.title}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
-                    {item.variant && (
-                      <p className="text-sm text-gray-500 mb-2">Variant: {item.variant.name}</p>
-                    )}
-                    <p className="text-orange-600 font-bold">{formatPrice(item.price)}</p>
-                    
-                    {/* Display shipping cost per item */}
-                    {item.shipping && !item.shipping.free && item.shipping.cost > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Shipping: {formatPrice(item.shipping.cost)} per item
-                      </p>
-                    )}
-                    {item.shipping?.free && (
-                      <p className="text-xs text-green-600 mt-1">Free shipping</p>
-                    )}
-                    
-                    <div className="flex items-center gap-4 mt-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
-                          className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50"
-                          disabled={!selectedItems[index]}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-8 text-center text-gray-700">{item.quantity}</span>
-                        <button
-                          onClick={() => handleUpdateQuantity(index, item.quantity + 1)}
-                          className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50"
-                          disabled={!selectedItems[index]}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveItem(index)}
-                        className="text-red-500 hover:text-red-600 flex items-center gap-1 text-sm transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Remove
+                    <div className="flex-shrink-0 absolute top-1 h-7 w-7 bg-white p-1 left-1 rounded">
+                      <button onClick={() => handleToggleItem(index)} className="focus:outline-none">
+                        {selectedItems[index] ? <CheckSquare className="w-5 h-5 text-orange-500" /> : <Square className="w-5 h-5 text-gray-400" />}
                       </button>
                     </div>
-                  </div>
+                    <div className="w-24 h-24 bg-gray-100 rounded-lg flex border border-gray-200 items-center justify-center flex-shrink-0">
+                      <img src={item.image || '/placeholder.png'} alt={item.title} className="w-full h-full object-cover rounded-lg" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
+                      {item.variant && <p className="text-sm text-gray-500 mb-2">Variant: {item.variant.name}</p>}
+                      <p className="text-orange-600 font-bold">{formatPrice(item.price)}</p>
+                      {item.shipping && !item.shipping.free && item.shipping.cost > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">Shipping: {formatPrice(item.shipping.cost)} per item</p>
+                      )}
+                      {item.shipping?.free && <p className="text-xs text-green-600 mt-1">Free shipping</p>}
+                      <div className="flex items-center gap-4 mt-3">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleUpdateQuantity(index, item.quantity - 1)} className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50" disabled={!selectedItems[index]}>
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-8 text-center text-gray-700">{item.quantity}</span>
+                          <button onClick={() => handleUpdateQuantity(index, item.quantity + 1)} className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50" disabled={!selectedItems[index]}>
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <button onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-600 flex items-center gap-1 text-sm transition">
+                          <Trash2 className="w-4 h-4" /> Remove
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-900">{formatPrice(item.price * item.quantity)}</p>
-                    {/* Show total shipping for this item */}
                     {item.shipping && !item.shipping.free && item.shipping.cost > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Shipping: {formatPrice(item.shipping.cost * item.quantity)}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Shipping: {formatPrice(item.shipping.cost * item.quantity)}</p>
                     )}
                   </div>
                 </div>
@@ -280,76 +247,32 @@ const CartPage = () => {
           </div>
           
           <div className="flex justify-between mt-4">
-            <button 
-              onClick={() => navigate('/')}
-              className="text-orange-500 hover:text-orange-600 transition"
-            >
-              ← Continue Shopping
-            </button>
+            <button onClick={() => navigate('/')} className="text-orange-500 hover:text-orange-600 transition">← Continue Shopping</button>
             {localCartItems.length > 0 && (
-              <button 
-                onClick={() => {
-                  if (window.confirm('Clear entire cart? This action cannot be undone.')) {
-                    clearCart();
-                  }
-                }}
-                className="text-red-500 hover:text-red-600 transition"
-              >
-                Clear Cart
-              </button>
+              <button onClick={() => { if (window.confirm('Clear entire cart?')) clearCart(); }} className="text-red-500 hover:text-red-600 transition">Clear Cart</button>
             )}
           </div>
         </div>
         
-        {/* Order Summary - Only for selected items */}
         <div className="lg:col-span-1">
           <div className="border bg-white border-gray-200 rounded-lg p-6 sticky top-20">
-            <h2 className="text-xl font-bold mb-4">
-              Order Summary
-            </h2>
-            
+            <h2 className="text-xl font-bold mb-4">Order Summary</h2>
             {selectedCount === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500 mb-4">No items selected for checkout</p>
-                <button
-                  onClick={handleToggleSelectAll}
-                  className="text-orange-500 hover:text-orange-600 text-sm"
-                >
-                  Select all items
-                </button>
+                <button onClick={handleToggleSelectAll} className="text-orange-500 hover:text-orange-600 text-sm">Select all items</button>
               </div>
             ) : (
               <>
                 <div className="space-y-3 mb-4 pb-4 border-b border-gray-200">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
-                    <span className="font-medium">{formatPrice(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Shipping</span>
-                    <span className="font-medium">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>
-                  </div>
+                  <div className="flex justify-between text-gray-600"><span>Subtotal</span><span className="font-medium">{formatPrice(subtotal)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Shipping</span><span className="font-medium">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span></div>
                 </div>
-                
-                <div className="flex justify-between text-xl font-bold mb-6">
-                  <span>Total</span>
-                  <span className="text-orange-600">{formatPrice(total)}</span>
-                </div>
-                
-                <button
-                  onClick={handleProceedToCheckout}
-                  className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition border-0"
-                >
-                  Proceed to Checkout
-                </button>
+                <div className="flex justify-between text-xl font-bold mb-6"><span>Total</span><span className="text-orange-600">{formatPrice(total)}</span></div>
+                <button onClick={handleProceedToCheckout} className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition border-0">Proceed to Checkout</button>
               </>
             )}
-            
-            {!user && (
-              <p className="text-xs text-center mt-4 text-orange-600">
-                Sign in to save your cart across devices!
-              </p>
-            )}
+            {!user && <p className="text-xs text-center mt-4 text-orange-600">Sign in to save your cart across devices!</p>}
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-// PaymentPage.jsx - Fixed to properly handle selected items
+// PaymentPage.jsx - Use pre-calculated values from CartPage
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, ArrowLeft, Loader, AlertCircle, MapPin, User, Phone, Truck, ShoppingBag } from 'lucide-react';
@@ -7,7 +7,7 @@ import axios from 'axios';
 import API_BASE_URL from '../config';
 
 const PaymentPage = () => {
-  const { cartItems, clearCart, user, getAuthHeaders } = useData();
+  const { user, getAuthHeaders } = useData();
   const [processing, setProcessing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showProfileWarning, setShowProfileWarning] = useState(false);
@@ -20,244 +20,50 @@ const PaymentPage = () => {
   const [validatingItems, setValidatingItems] = useState(true);
   const [validationError, setValidationError] = useState('');
   const [buyerLocation, setBuyerLocation] = useState({ city: '', state: '' });
-  const [addressLocationValid, setAddressLocationValid] = useState(true);
-  const [invalidItems, setInvalidItems] = useState([]);
-  const [itemsProcessed, setItemsProcessed] = useState(false);
+  const [checkoutTotals, setCheckoutTotals] = useState({ subtotal: 0, shipping: 0, total: 0 });
   const hasProcessed = useRef(false);
-
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Only run once to prevent re-fetching
-    if (hasProcessed.current) return;
-    hasProcessed.current = true;
-    
-    // Get items to checkout from localStorage (selected from cart page)
-    const selectedItemsStr = localStorage.getItem('selectedCartItems');
-    let items = [];
-    
-    if (selectedItemsStr) {
-      items = JSON.parse(selectedItemsStr);
-      // Clear immediately after reading to prevent reuse
-      localStorage.removeItem('selectedCartItems');
-    } else {
-      // If no selected items, redirect back to cart
-      navigate('/cart');
-      return;
-    }
-    
-    if (items.length === 0) {
-      navigate('/cart');
-      return;
-    }
-    
-    setItemsProcessed(true);
-    
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    if (!token || !user) {
-      navigate('/cart');
-      return;
-    }
-    
-    // Get buyer's saved location
-    const savedCity = localStorage.getItem('buyerCity');
-    const savedState = localStorage.getItem('buyerState');
-    if (savedCity && savedState) {
-      setBuyerLocation({ city: savedCity, state: savedState });
-    }
-    
-    // Fetch user data and validate cart items
-    fetchUserData();
-    validateCartItems(items);
-  }, [navigate, user]);
-
-  const validateCartItems = async (items) => {
-    setValidatingItems(true);
-    setValidationError('');
-    setInvalidItems([]);
-    
-    try {
-      const token = localStorage.getItem('token');
-      
-      if (!items || items.length === 0) {
-        throw new Error('No items to validate');
-      }
-      
-      const validatedItemsList = [];
-      const invalidItemsList = [];
-      
-      for (const item of items) {
-        // Fetch fresh product data from backend
-        const response = await axios.get(`${API_BASE_URL}/products/${item.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        if (!response.data.success) {
-          throw new Error(`Product ${item.title} not found`);
-        }
-        
-        const product = response.data.data;
-        
-        // Check if product is still in stock
-        const selectedVariant = item.variant;
-        let currentStock = product.stock;
-        let currentPrice = product.price;
-        let variantData = null;
-        
-        if (selectedVariant) {
-          const variant = product.variants?.find(v => v.id === selectedVariant.id || v.name === selectedVariant.name);
-          if (!variant) {
-            throw new Error(`Variant ${selectedVariant.name} no longer available for ${product.title}`);
-          }
-          currentStock = variant.stock;
-          currentPrice = variant.price;
-          variantData = variant;
-        }
-        
-        // Check stock availability
-        if (currentStock < item.quantity) {
-          throw new Error(`${product.title} only has ${currentStock} items in stock`);
-        }
-        
-        // Check if delivery is available to buyer's location
-        const isDeliveryAvailable = checkDeliveryAvailability(product, buyerLocation.city, buyerLocation.state);
-        
-        if (!isDeliveryAvailable) {
-          invalidItemsList.push({
-            title: product.title,
-            reason: `Not available for delivery to ${buyerLocation.city}, ${buyerLocation.state}`
-          });
-        }
-        
-        // Get delivery price based on buyer's location
-        const deliveryPrice = getDeliveryPriceForLocation(product, buyerLocation.city, buyerLocation.state);
-        
-        // Calculate bulk discount if applicable
-        const discountInfo = getBulkDiscount(product, item.quantity, buyerLocation.city, buyerLocation.state);
-        
-        // Get the shipping info
-        const shippingInfo = product.shipping || { free: false, cost: 0, estimatedDays: null };
-        
-        validatedItemsList.push({
-          id: item.id,
-          title: item.title,
-          quantity: item.quantity,
-          price: item.price,
-          validatedPrice: currentPrice,
-          validatedStock: currentStock,
-          image: item.image,
-          variant: selectedVariant ? {
-            ...selectedVariant,
-            price: currentPrice,
-            stock: currentStock
-          } : null,
-          variantData: variantData,
-          sellerId: product.sellerId,
-          sellerName: product.sellerName,
-          sellerEmail: product.sellerEmail,
-          deliveryPrice: deliveryPrice,
-          discountInfo: discountInfo,
-          shipping: shippingInfo,
-          finalPrice: calculateItemFinalPrice(currentPrice, deliveryPrice, discountInfo, item.quantity),
-          productData: product,
-          deliveryAvailable: isDeliveryAvailable
-        });
-      }
-      
-      setValidatedItems(validatedItemsList);
-      setInvalidItems(invalidItemsList);
-      setAddressLocationValid(invalidItemsList.length === 0);
-      
-      if (invalidItemsList.length > 0) {
-        setValidationError(`Some items cannot be delivered to ${buyerLocation.city || 'your location'}`);
-      }
-    } catch (error) {
-      console.error('Error validating cart items:', error);
-      setValidationError(error.message || 'Failed to validate cart items. Please try again.');
-    } finally {
-      setValidatingItems(false);
-    }
-  };
-
-  const checkDeliveryAvailability = (product, city, state) => {
-    if (!city || !state) return true;
-    
-    // No delivery zones means nationwide delivery
-    if (!product.deliveryZones || product.deliveryZones.length === 0) {
-      return true;
-    }
-    
-    // Check if there's a delivery zone for this location
-    const deliveryZone = product.deliveryZones?.find(
-      zone => zone.city?.toLowerCase() === city?.toLowerCase() && 
-              zone.state?.toLowerCase() === state?.toLowerCase()
-    );
-    
-    return !!deliveryZone;
-  };
-
-  const getDeliveryPriceForLocation = (product, city, state) => {
-    if (!city || !state) return product.shipping?.cost || 0;
-    
-    const deliveryZone = product.deliveryZones?.find(
-      zone => zone.city?.toLowerCase() === city?.toLowerCase() && 
-              zone.state?.toLowerCase() === state?.toLowerCase()
-    );
-    
-    return deliveryZone?.price !== undefined ? deliveryZone.price : (product.shipping?.cost || 0);
-  };
-
-  const getBulkDiscount = (product, quantity, city, state) => {
-    const deliveryZone = product.deliveryZones?.find(
-      zone => zone.city?.toLowerCase() === city?.toLowerCase() && 
-              zone.state?.toLowerCase() === state?.toLowerCase()
-    );
-    
-    const discount = deliveryZone?.discountOnQuantity;
-    
-    if (discount?.enabled && quantity >= (discount.minQuantity || 2)) {
-      return {
-        enabled: true,
-        minQuantity: discount.minQuantity,
-        discountType: discount.discountType,
-        discountValue: discount.discountValue,
-        appliesTo: discount.appliesTo
-      };
-    }
-    
-    return { enabled: false };
-  };
-
-  const calculateItemFinalPrice = (productPrice, deliveryPrice, discountInfo, quantity) => {
-    let finalProductPrice = productPrice;
-    let finalDeliveryPrice = deliveryPrice;
-    
-    if (discountInfo.enabled) {
-      const discountAmount = discountInfo.discountType === 'percentage' 
-        ? (discountInfo.discountValue / 100)
-        : discountInfo.discountValue;
-      
-      if (discountInfo.appliesTo === 'product' || discountInfo.appliesTo === 'both') {
-        finalProductPrice = discountInfo.discountType === 'percentage'
-          ? productPrice * (1 - discountAmount)
-          : productPrice - discountAmount;
-      }
-      
-      if (discountInfo.appliesTo === 'delivery' || discountInfo.appliesTo === 'both') {
-        finalDeliveryPrice = discountInfo.discountType === 'percentage'
-          ? deliveryPrice * (1 - discountAmount)
-          : deliveryPrice - discountAmount;
-      }
-    }
-    
-    return {
-      unitProductPrice: finalProductPrice,
-      unitDeliveryPrice: Math.max(0, finalDeliveryPrice),
-      totalProductPrice: finalProductPrice * quantity,
-      totalDeliveryPrice: Math.max(0, finalDeliveryPrice) * quantity
-    };
-  };
+// In PaymentPage.jsx useEffect
+useEffect(() => {
+  if (hasProcessed.current) return;
+  hasProcessed.current = true;
+  
+  // Get pre-calculated items and totals from CartPage
+  const selectedItemsStr = localStorage.getItem('selectedCartItems');
+  const totalsStr = localStorage.getItem('checkoutTotals');
+  
+  if (!selectedItemsStr || !totalsStr) {
+    navigate('/cart');
+    return;
+  }
+  
+  const items = JSON.parse(selectedItemsStr);
+  const totals = JSON.parse(totalsStr);
+  
+  if (items.length === 0) {
+    navigate('/cart');
+    return;
+  }
+  
+  setValidatedItems(items);
+  setCheckoutTotals(totals);
+  
+  const token = localStorage.getItem('token');
+  if (!token || !user) {
+    navigate('/cart');
+    return;
+  }
+  
+  const savedCity = localStorage.getItem('buyerCity');
+  const savedState = localStorage.getItem('buyerState');
+  if (savedCity && savedState) {
+    setBuyerLocation({ city: savedCity, state: savedState });
+  }
+  
+  fetchUserData();
+  setValidatingItems(false);
+}, [navigate, user]);
 
   const fetchUserData = async () => {
     try {
@@ -284,11 +90,9 @@ const PaymentPage = () => {
       if (profileResponse.data.success) {
         const userData = profileResponse.data.data;
         const missing = [];
-        
         if (!userData.phone || userData.phone.trim() === '') {
           missing.push('Phone Number');
         }
-        
         setMissingFields(missing);
         setProfileComplete(missing.length === 0 && addressesResponse.data.data.length > 0);
       }
@@ -308,113 +112,98 @@ const PaymentPage = () => {
     }).format(price);
   };
 
-  const calculateTotals = () => {
-    const subtotal = validatedItems.reduce((sum, item) => sum + item.finalPrice.totalProductPrice, 0);
-    const shipping = validatedItems.reduce((sum, item) => sum + item.finalPrice.totalDeliveryPrice, 0);
-    const total = subtotal + shipping;
+// PaymentPage.jsx - Add seller emails to order data
+const initializePaystackPayment = async () => {
+  if (!profileComplete) {
+    setShowProfileWarning(true);
+    return;
+  }
+  
+  if (!selectedAddressId) {
+    alert('Please select a delivery address');
+    return;
+  }
+  
+  if (validatedItems.length === 0) {
+    alert('No valid items in cart');
+    return;
+  }
+  
+  setProcessing(true);
+  
+  try {
+    const selectedAddress = addresses.find(addr => addr._id === selectedAddressId);
+    const reference = `ZOOMIA_${user._id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
-    return { subtotal, shipping, total };
-  };
-
-  const { subtotal, shipping, total } = calculateTotals();
-
-  const initializePaystackPayment = async () => {
-    if (!profileComplete) {
-      setShowProfileWarning(true);
-      return;
-    }
+    // Get seller emails from localStorage
+    const sellerEmails = JSON.parse(localStorage.getItem('sellerEmails') || '[]');
     
-    if (!selectedAddressId) {
-      alert('Please select a delivery address');
-      return;
-    }
+    const orderItems = validatedItems.map(item => ({
+      productId: item.id,
+      title: item.title,
+      quantity: item.quantity,
+      price: item.validatedPrice || item.price,
+      variant: item.variant,
+      sellerId: item.sellerId,
+      sellerName: item.sellerName,
+      sellerEmail: item.sellerEmail, // Include seller email
+      deliveryPrice: item.perItemShipping || (item.shipping?.cost || 0),
+      totalPrice: item.calculatedSubtotal || (item.price * item.quantity),
+      totalDelivery: item.calculatedShipping || ((item.shipping?.cost || 0) * item.quantity)
+    }));
     
-    if (validatedItems.length === 0) {
-      alert('No valid items in cart');
-      return;
-    }
-    
-    if (!addressLocationValid) {
-      alert('Some items cannot be delivered to your location. Please remove them or change your delivery location.');
-      return;
-    }
-    
-    setProcessing(true);
-    
-    try {
-      const selectedAddress = addresses.find(addr => addr._id === selectedAddressId);
-      const reference = `ZOOMIA_${user._id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      
-      const orderItems = validatedItems.map(item => ({
-        productId: item.id,
-        title: item.title,
-        quantity: item.quantity,
-        price: item.validatedPrice,
-        originalPrice: item.productData.originalPrice,
-        variant: item.variant,
-        sellerId: item.sellerId,
-        sellerName: item.sellerName,
-        sellerEmail: item.sellerEmail,
-        deliveryPrice: item.deliveryPrice,
-        discountApplied: item.discountInfo.enabled ? item.discountInfo : null,
-        finalProductPrice: item.finalPrice.unitProductPrice,
-        finalDeliveryPrice: item.finalPrice.unitDeliveryPrice,
-        totalPrice: item.finalPrice.totalProductPrice,
-        totalDelivery: item.finalPrice.totalDeliveryPrice
-      }));
-      
-      const orderData = {
-        reference: reference,
-        amount: Math.round(total * 100),
-        email: user.email,
-        fullName: user.fullName,
-        phone: user.phone,
+    const orderData = {
+      reference: reference,
+      amount: Math.round(checkoutTotals.total * 100),
+      email: user.email,
+      fullName: user.fullName,
+      phone: user.phone,
+      deliveryAddress: selectedAddress,
+      items: orderItems,
+      subtotal: checkoutTotals.subtotal,
+      shipping: checkoutTotals.shipping,
+      total: checkoutTotals.total,
+      isGuest: false,
+      buyerLocation: buyerLocation,
+      sellerEmails: sellerEmails, // Add seller emails to the order data
+      metadata: {
+        userId: user._id,
+        validatedItems: orderItems,
         deliveryAddress: selectedAddress,
-        items: orderItems,
-        subtotal: subtotal,
-        shipping: shipping,
-        total: total,
-        isGuest: false,
-        buyerLocation: buyerLocation,
-        metadata: {
-          userId: user._id,
-          validatedItems: orderItems,
-          deliveryAddress: selectedAddress
-        }
-      };
-
-      const headers = getAuthHeaders ? getAuthHeaders() : {};
-      const response = await axios.post(`${API_BASE_URL}/payment/initialize`, orderData, {
-        headers: headers
-      });
-
-      if (response.data.success && response.data.data.authorization_url) {
-        localStorage.setItem('pendingPaymentRef', reference);
-        localStorage.setItem('pendingOrderData', JSON.stringify(orderData));
-        setShowModal(true);
-        
-        setTimeout(() => {
-          window.location.href = response.data.data.authorization_url;
-        }, 1500);
-      } else {
-        alert(response.data.message || 'Failed to initialize payment');
-        setProcessing(false);
+        sellerEmails: sellerEmails
       }
-    } catch (error) {
-      console.error('Payment initialization error:', error);
-      alert(error.response?.data?.message || 'Failed to initialize payment. Please try again.');
+    };
+
+    const headers = getAuthHeaders ? getAuthHeaders() : {};
+    const response = await axios.post(`${API_BASE_URL}/payment/initialize`, orderData, {
+      headers: headers
+    });
+
+    if (response.data.success && response.data.data.authorization_url) {
+      localStorage.setItem('pendingPaymentRef', reference);
+      localStorage.setItem('pendingOrderData', JSON.stringify(orderData));
+      setShowModal(true);
+      
+      setTimeout(() => {
+        window.location.href = response.data.data.authorization_url;
+      }, 1500);
+    } else {
+      alert(response.data.message || 'Failed to initialize payment');
       setProcessing(false);
     }
-  };
+  } catch (error) {
+    console.error('Payment initialization error:', error);
+    alert(error.response?.data?.message || 'Failed to initialize payment. Please try again.');
+    setProcessing(false);
+  }
+};
 
   if (!user) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
         <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
         <p className="text-gray-500 text-lg">Please sign in to proceed with payment</p>
-        <button onClick={() => navigate('/login')} className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
-          Sign In
-        </button>
+        <button onClick={() => navigate('/login')} className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">Sign In</button>
       </div>
     );
   }
@@ -423,34 +212,7 @@ const PaymentPage = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
         <Loader className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
-        <p className="mt-4 text-gray-500">
-          {validatingItems ? 'Validating your cart...' : 'Loading your information...'}
-        </p>
-      </div>
-    );
-  }
-
-  if (validationError) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-        <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-        <p className="text-red-600 text-lg mb-4">{validationError}</p>
-        {invalidItems.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 max-w-md mx-auto text-left">
-            <p className="font-semibold text-red-700 mb-2">Items not deliverable to {buyerLocation.city}:</p>
-            <ul className="list-disc list-inside">
-              {invalidItems.map((item, idx) => (
-                <li key={idx} className="text-sm text-red-600">{item.title}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <button onClick={() => navigate('/cart')} className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
-          Return to Cart
-        </button>
-        <button onClick={() => navigate('/profile')} className="ml-3 px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-          Change Location
-        </button>
+        <p className="mt-4 text-gray-500">{validatingItems ? 'Loading your cart...' : 'Loading your information...'}</p>
       </div>
     );
   }
@@ -460,9 +222,7 @@ const PaymentPage = () => {
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
         <ShoppingBag className="w-16 h-16 mx-auto text-gray-400 mb-4" />
         <p className="text-gray-500 text-lg">No items to checkout</p>
-        <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
-          Continue Shopping
-        </button>
+        <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">Continue Shopping</button>
       </div>
     );
   }
@@ -471,8 +231,7 @@ const PaymentPage = () => {
     <>
       <div className="max-w-7xl mx-auto px-4 py-4">
         <button onClick={() => navigate('/cart')} className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Cart
+          <ArrowLeft className="w-4 h-4" /> Back to Cart
         </button>
         
         <h1 className="text-xl font-bold mb-4">Checkout</h1>
@@ -481,16 +240,13 @@ const PaymentPage = () => {
           <div className="lg:col-span-2">
             <div className="border bg-white border-gray-200 p-6 mb-6">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-orange-500" />
-                Delivery Address
+                <MapPin className="w-5 h-5 text-orange-500" /> Delivery Address
               </h2>
               
               {addresses.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-gray-500 mb-3">No saved addresses found</p>
-                  <button onClick={() => navigate('/profile?tab=addresses')} className="text-orange-500 hover:text-orange-600">
-                    + Add Delivery Address
-                  </button>
+                  <button onClick={() => navigate('/profile?tab=addresses')} className="text-orange-500 hover:text-orange-600">+ Add Delivery Address</button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -511,9 +267,7 @@ const PaymentPage = () => {
                       </div>
                     </label>
                   ))}
-                  <button onClick={() => navigate('/profile?tab=addresses')} className="text-orange-500 hover:text-orange-600 text-sm mt-2">
-                    + Add New Address
-                  </button>
+                  <button onClick={() => navigate('/profile?tab=addresses')} className="text-orange-500 hover:text-orange-600 text-sm mt-2">+ Add New Address</button>
                 </div>
               )}
             </div>
@@ -525,29 +279,23 @@ const PaymentPage = () => {
                   <div key={index} className="border-b border-gray-100 pb-3">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="font-medium">{item.title} × {item.quantity}</span>
-                      <span className="font-semibold">{formatPrice(item.finalPrice.totalProductPrice)}</span>
+                      <span className="font-semibold">{formatPrice(item.calculatedSubtotal || (item.price * item.quantity))}</span>
                     </div>
                     <div className="flex justify-between text-xs text-gray-500 mb-1">
                       <span>Delivery fee:</span>
-                      <span>{formatPrice(item.finalPrice.totalDeliveryPrice)}</span>
+                      <span>{formatPrice(item.calculatedShipping || ((item.shipping?.cost || 0) * item.quantity))}</span>
                     </div>
-                    {item.discountInfo.enabled && (
-                      <div className="flex justify-between text-xs text-green-600">
-                        <span>Bulk discount applied:</span>
-                        <span>{item.discountInfo.discountType === 'percentage' ? `${item.discountInfo.discountValue}% off` : `${formatPrice(item.discountInfo.discountValue)} off`} (min {item.discountInfo.minQuantity} items)</span>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
               
               <div className="space-y-2 mb-4 pt-4 border-t border-gray-200">
-                <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
-                <div className="flex justify-between"><span>Shipping</span><span>{shipping === 0 ? 'Free' : formatPrice(shipping)}</span></div>
+                <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(checkoutTotals.subtotal)}</span></div>
+                <div className="flex justify-between"><span>Shipping</span><span>{checkoutTotals.shipping === 0 ? 'Free' : formatPrice(checkoutTotals.shipping)}</span></div>
               </div>
               
               <div className="flex justify-between text-xl font-bold pt-4 border-t border-gray-200">
-                <span>Total</span><span className="text-orange-600">{formatPrice(total)}</span>
+                <span>Total</span><span className="text-orange-600">{formatPrice(checkoutTotals.total)}</span>
               </div>
             </div>
           </div>
@@ -565,9 +313,9 @@ const PaymentPage = () => {
                 </div>
                 {!buyerLocation.city && <p className="text-xs text-orange-600 mt-1">Please set your delivery location first</p>}
               </div>
-              <button onClick={initializePaystackPayment} disabled={processing || addresses.length === 0 || !buyerLocation.city || !addressLocationValid}
+              <button onClick={initializePaystackPayment} disabled={processing || addresses.length === 0 || !buyerLocation.city}
                 className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                {processing ? <><Loader className="w-5 h-5 animate-spin" />Processing...</> : `Pay ${formatPrice(total)}`}
+                {processing ? <><Loader className="w-5 h-5 animate-spin" />Processing...</> : `Pay ${formatPrice(checkoutTotals.total)}`}
               </button>
               {addresses.length === 0 && <p className="text-xs text-center mt-4 text-red-500">Please add a delivery address to continue</p>}
               {!buyerLocation.city && <p className="text-xs text-center mt-4 text-orange-500">Please set your delivery location first</p>}

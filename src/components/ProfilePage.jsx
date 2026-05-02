@@ -88,13 +88,10 @@ const ProfilePage = () => {
   // Fetch all Nigerian states
   const fetchStates = async () => {
     try {
-      console.log('Fetching states from:', `${API_BASE_URL}/cities/states`);
       const response = await axios.get(`${API_BASE_URL}/cities/states`);
-      console.log('States response:', response.data);
       if (response.data.success) {
         setAvailableStates(response.data.data);
       } else {
-        console.error('Failed to fetch states:', response.data);
         setLocationError('Failed to load states');
       }
     } catch (error) {
@@ -138,24 +135,17 @@ const ProfilePage = () => {
     setAvailableCities([]);
     
     try {
-      console.log('Fetching cities for state:', state);
       const encodedState = encodeURIComponent(state);
       const url = `${API_BASE_URL}/cities/state/${encodedState}`;
-      console.log('Request URL:', url);
       
       const response = await axios.get(url);
-      console.log('Cities response:', response.data);
-      
+
       if (response.data.success) {
         setAvailableCities(response.data.data);
-        console.log(`Loaded ${response.data.data.length} cities for ${state}`);
       } else {
-        console.error('Failed to fetch cities:', response.data);
         setLocationError('Failed to load cities');
       }
     } catch (error) {
-      console.error('Error fetching cities:', error);
-      console.error('Error details:', error.response?.data);
       setLocationError(error.response?.data?.message || 'Failed to load cities');
     } finally {
       setLocationLoading(false);
