@@ -48,7 +48,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
            navigate('/seller');
            setIsMenuOpen(false);
           }} className="text-left">SELL ON ZOOMIA</button>
-          <button className="text-left">CONTACT SUPPORT</button>
+          <button onClick={() => window.open('mailto:paulrotimijohnson@gmail.com')} className="text-left">CONTACT SUPPORT</button>
         </div>
       </div>
     </div>
