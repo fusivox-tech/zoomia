@@ -6,6 +6,271 @@ import API_BASE_URL from '../config';
 import SellerDeliveryZones from './SellerDeliveryZones';
 import { Store, Package, Truck, Shield, Percent, Users, TrendingUp, ArrowRight, CheckCircle } from 'lucide-react';
 
+const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled, onUpdateStatus }) => {
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
+  
+  const orderStatus = order.status || 'pending';
+  const orderDate = order.createdAt;
+  
+  // Calculate if order is within 7 days for seller cancellation
+  const now = new Date();
+  const orderCreatedAt = new Date(orderDate);
+  const daysSinceOrder = (now - orderCreatedAt) / (1000 * 60 * 60 * 24);
+  const canCancel = daysSinceOrder <= 7;
+  
+  // Timer effect for seller cancellation (7 days countdown)
+  useEffect(() => {
+    if (!canCancel) return;
+    
+    const timer = setInterval(() => {
+      const now = new Date();
+      const elapsed = (now - orderCreatedAt) / 1000;
+      const remaining = 7 * 24 * 60 * 60 - elapsed;
+      
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTimeLeft({ days: 0, hours: 0, minutes: 0 });
+      } else {
+        const days = Math.floor(remaining / (24 * 3600));
+        const hours = Math.floor((remaining % (24 * 3600)) / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        setTimeLeft({ days, hours, minutes });
+      }
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(timer);
+  }, [canCancel, orderCreatedAt]);
+  
+  const handleCancelOrder = async () => {
+    setCancelling(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_BASE_URL}/orders/${order._id}/cancel`,
+        { cancellationReason, cancelledBy: 'seller' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        alert(response.data.message);
+        if (onOrderCancelled) onOrderCancelled();
+        setShowCancelModal(false);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to cancel order');
+    } finally {
+      setCancelling(false);
+    }
+  };
+  
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
+      {/* Order Header */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-white text-sm font-mono">
+              Order #{order.reference?.slice(-8) || order._id.slice(-8)}
+            </p>
+            <p className="text-orange-100 text-xs mt-1">
+              {new Date(orderDate).toLocaleDateString()} at {new Date(orderDate).toLocaleTimeString()}
+            </p>
+          </div>
+          <span className={`px-3 py-1 text-xs rounded-full bg-white/20 text-white capitalize`}>
+            {orderStatus}
+          </span>
+        </div>
+      </div>
+      
+      <div className="p-6">
+        {/* Cancelled Order Notice */}
+        {orderStatus === 'cancelled' && (
+          <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-red-800">Order Cancelled</p>
+                <p className="text-xs text-red-700">
+                  Cancelled by: {order.cancelledBy === 'seller' ? 'You (Seller)' : 'Customer'}
+                </p>
+                {order.cancellationReason && (
+                  <p className="text-xs text-red-700 mt-1">Reason: {order.cancellationReason}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Customer Information */}
+        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+          <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+            <span className="text-orange-500 text-lg font-semibold">
+              {order.buyerFullName?.charAt(0) || 'C'}
+            </span>
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900">{order.buyerFullName || 'Guest Customer'}</p>
+            <p className="text-sm text-gray-500">{order.buyerEmail}</p>
+            {order.buyerPhone && (
+              <a href={`tel:${order.buyerPhone}`} className="text-sm text-orange-500 hover:text-orange-600 inline-flex items-center gap-1 mt-1">
+                📞 {order.buyerPhone}
+              </a>
+            )}
+          </div>
+        </div>
+        
+        {/* Order Items */}
+        <div className="mb-4">
+          <p className="text-sm font-medium text-gray-700 mb-2">Items Ordered ({order.items?.length || 0})</p>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {order.items?.map((item, idx) => (
+              <div key={idx} className="flex justify-between items-center text-sm">
+                <div className="flex items-center gap-2">
+                  {item.product?.images?.[0] && (
+                    <img src={item.product.images[0]} alt={item.title} className="w-8 h-8 rounded object-cover" />
+                  )}
+                  <span className="text-gray-700">{item.quantity}x {item.title}</span>
+                </div>
+                <span className="font-medium text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Delivery Address */}
+        {order.deliveryAddress && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
+              📍 Delivery Address
+            </p>
+            <p className="text-xs text-gray-600">
+              {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
+            </p>
+            {order.deliveryAddress.landmark && (
+              <p className="text-xs text-gray-500 mt-1">📍 Landmark: {order.deliveryAddress.landmark}</p>
+            )}
+            {order.deliveryAddress.askFor && (
+              <p className="text-xs text-gray-500">👤 Ask for: {order.deliveryAddress.askFor}</p>
+            )}
+          </div>
+        )}
+        
+        {/* Tracking Info */}
+        {order.trackingInfo && (orderStatus === 'shipped' || orderStatus === 'processing') && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-xs font-medium text-blue-800 mb-1">📦 Tracking Information</p>
+            <p className="text-xs text-blue-700">Tracking #: {order.trackingInfo.trackingNumber}</p>
+            <p className="text-xs text-blue-700">Carrier: {order.trackingInfo.carrier}</p>
+          </div>
+        )}
+        
+        {/* Seller Cancellation Timer (7 days) */}
+        {canCancel && orderStatus !== 'cancelled' && (
+          <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-yellow-800">Seller Cancellation Available</p>
+                <p className="text-xs text-yellow-700">You can cancel this order within:</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-bold text-yellow-800">
+                  {timeLeft.days}d {String(timeLeft.hours).padStart(2, '0')}h {String(timeLeft.minutes).padStart(2, '0')}m
+                </p>
+                <p className="text-xs text-yellow-700">(Too many order cancelation will result in suspension of your seller account)</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="mt-3 w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
+            >
+              Cancel Order
+            </button>
+          </div>
+        )}
+        
+        {/* Order Total and Actions */}
+        <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+          <div>
+            <p className="text-xs text-gray-500">Total Amount</p>
+            <p className="text-xl font-bold text-orange-600">₦{order.total?.toLocaleString() || 0}</p>
+          </div>
+          {orderStatus !== 'cancelled' && (
+            <button
+              onClick={() => onUpdateStatus(order)}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
+            >
+              Update Status
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {/* Cancellation Modal for Seller */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-900">Cancel Order</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Please tell us why you're cancelling this order (optional)
+              </p>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cancellation Reason
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  rows="4"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g., Out of stock, Customer requested cancellation, Shipping issues, etc."
+                />
+              </div>
+              
+<div className="p-3 bg-blue-50 rounded-lg mb-4">
+  <p className="text-xs text-blue-800">
+    <strong>Note:</strong> As a seller, cancelling this order will notify the customer. 
+    <strong>No penalty fee applies</strong> to seller-initiated cancellations. 
+    The customer will receive a <strong>100% full refund</strong>.
+  </p>
+</div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={cancelling}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 disabled:opacity-50"
+                >
+                  {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setCancellationReason('');
+                  }}
+                  className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Move ProductListingModal outside the main component to prevent re-creation on each render
 const ProductListingModal = ({ 
   show, 
@@ -898,6 +1163,15 @@ const checkCanSell = async () => {
     setShowListingModal(false);
     resetForm();
   }, [resetForm]);
+  
+  const formatPrice = (price) => {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(price);
+};
 
   // Show loading state while user data is being fetched
   if (!isDataLoaded || user === undefined) {
@@ -1266,124 +1540,41 @@ const checkCanSell = async () => {
         </div>
       )}
 
-      {/* Orders Tab - Card View */}
-      {activeTab === 'orders' && (
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Management</h2>
-          {orders.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <Truck className="w-16 h-16 mx-auto mb-3 text-gray-300" />
-              <p className="text-gray-500">No orders yet</p>
-              <p className="text-sm text-gray-400 mt-1">When customers order your products, they'll appear here</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {orders.map((order) => (
-                <div key={order._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
-                  {/* Order Header */}
-                  <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-white text-sm font-mono">
-                          Order #{order.reference?.slice(-8) || order._id.slice(-8)}
-                        </p>
-                        <p className="text-orange-100 text-xs mt-1">
-                          {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString()}
-                        </p>
-                      </div>
-                      <span className={`px-3 py-1 text-xs rounded-full bg-white/20 text-white capitalize`}>
-                        {order.status || 'pending'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="p-6">
-                    {/* Customer Information */}
-                    <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-                        <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                          <span className="text-orange-500 text-lg font-semibold">
-                            {order.buyerFullName?.charAt(0) || 'C'}
-                          </span>
-                        </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{order.buyerFullName || 'Guest Customer'}</p>
-                        <p className="text-sm text-gray-500">{order.buyerEmail}</p>
-                        {order.buyerPhone && (
-                          <a href={`tel:${order.buyerPhone}`} className="text-sm text-orange-500 hover:text-orange-600 inline-flex items-center gap-1 mt-1">
-                            📞 {order.buyerPhone}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Order Items */}
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Items Ordered ({order.items?.length || 0})</p>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {order.items?.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm">
-                            <div className="flex items-center gap-2">
-                              {item.product?.images?.[0] && (
-                                <img src={item.product.images[0]} alt={item.title} className="w-8 h-8 rounded object-cover" />
-                              )}
-                              <span className="text-gray-700">{item.quantity}x {item.title}</span>
-                            </div>
-                            <span className="font-medium text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Delivery Address */}
-                    {order.deliveryAddress && (
-                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
-                          📍 Delivery Address
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Tracking Info */}
-                    {order.trackingInfo && (order.status === 'shipped' || order.status === 'processing') && (
-                      <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                        <p className="text-xs font-medium text-blue-800 mb-1">📦 Tracking Information</p>
-                        <p className="text-xs text-blue-700">Tracking #: {order.trackingInfo.trackingNumber}</p>
-                        <p className="text-xs text-blue-700">Carrier: {order.trackingInfo.carrier}</p>
-                      </div>
-                    )}
-                    
-                    {/* Order Total and Actions */}
-                    <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                      <div>
-                        <p className="text-xs text-gray-500">Total Amount</p>
-                        <p className="text-xl font-bold text-orange-600">₦{order.total?.toLocaleString() || 0}</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setOrderStatus(order.status || 'pending');
-                          setTrackingInfo({
-                            trackingNumber: order.trackingInfo?.trackingNumber || '',
-                            carrier: order.trackingInfo?.carrier || '',
-                            estimatedDelivery: order.trackingInfo?.estimatedDelivery || ''
-                          });
-                          setShowOrderModal(true);
-                        }}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
-                      >
-                        Update Status
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+{/* Orders Tab - Card View */}
+{activeTab === 'orders' && (
+  <div>
+    <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Management</h2>
+    {orders.length === 0 ? (
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
+        <Truck className="w-16 h-16 mx-auto mb-3 text-gray-300" />
+        <p className="text-gray-500">No orders yet</p>
+        <p className="text-sm text-gray-400 mt-1">When customers order your products, they'll appear here</p>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {orders.map((order) => (
+          <SellerOrderCard 
+            key={order._id}
+            order={order}
+            formatPrice={formatPrice}
+            getOrderStatusColor={getOrderStatusColor}
+            onOrderCancelled={fetchSellerOrders}
+            onUpdateStatus={(selectedOrder) => {
+              setSelectedOrder(selectedOrder);
+              setOrderStatus(selectedOrder.status || 'pending');
+              setTrackingInfo({
+                trackingNumber: selectedOrder.trackingInfo?.trackingNumber || '',
+                carrier: selectedOrder.trackingInfo?.carrier || '',
+                estimatedDelivery: selectedOrder.trackingInfo?.estimatedDelivery || ''
+              });
+              setShowOrderModal(true);
+            }}
+          />
+        ))}
+      </div>
+    )}
+  </div>
+)}
 
       {/* Unified Product Listing Modal */}
       <ProductListingModal
@@ -1418,165 +1609,176 @@ const checkCanSell = async () => {
         currentZones={formData.deliveryZones}
       />
 
-      {/* Order Status Update Modal */}
-      {showOrderModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
-              <h2 className="text-xl font-semibold text-gray-900">Update Order Status</h2>
-              <p className="text-sm text-gray-500 mt-1">Order #{selectedOrder.reference?.slice(-8) || selectedOrder._id.slice(-8)}</p>
+{/* Order Status Update Modal */}
+{showOrderModal && selectedOrder && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+        <h2 className="text-xl font-semibold text-gray-900">Update Order Status</h2>
+        <p className="text-sm text-gray-500 mt-1">Order #{selectedOrder.reference?.slice(-8) || selectedOrder._id.slice(-8)}</p>
+      </div>
+      
+      <div className="p-6">
+        {/* Show warning if order is cancelled */}
+        {selectedOrder.status === 'cancelled' && (
+          <div className="mb-6 p-3 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm text-red-700">
+              This order has been cancelled. You cannot update the status of a cancelled order.
+            </p>
+          </div>
+        )}
+        
+        {/* Buyer Information Section */}
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Buyer Information</h3>
+          <div className="space-y-2">
+            <p className="text-sm">
+              <span className="font-medium text-gray-600">Name:</span>{' '}
+              <span className="text-gray-900">{selectedOrder.buyerFullName || 'Guest'}</span>
+            </p>
+            <p className="text-sm">
+              <span className="font-medium text-gray-600">Email:</span>{' '}
+              <a href={`mailto:${selectedOrder.buyerEmail}`} className="text-orange-500 hover:text-orange-600">
+                {selectedOrder.buyerEmail}
+              </a>
+            </p>
+            {selectedOrder.buyerPhone && (
+              <p className="text-sm">
+                <span className="font-medium text-gray-600">Phone:</span>{' '}
+                <a href={`tel:${selectedOrder.buyerPhone}`} className="text-orange-500 hover:text-orange-600">
+                  {selectedOrder.buyerPhone}
+                </a>
+              </p>
+            )}
+          </div>
+          
+          {selectedOrder.deliveryAddress && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-1">Delivery Address</p>
+              <p className="text-sm text-gray-600">
+                {selectedOrder.deliveryAddress.street}, {selectedOrder.deliveryAddress.city}, {selectedOrder.deliveryAddress.state}
+              </p>
             </div>
-            
-            <div className="p-6">
-              {/* Buyer Information Section */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Buyer Information</h3>
-                <div className="space-y-2">
-                  <p className="text-sm">
-                    <span className="font-medium text-gray-600">Name:</span>{' '}
-                    <span className="text-gray-900">{selectedOrder.buyerFullName || 'Guest'}</span>
-                  </p>
-                  <p className="text-sm">
-                    <span className="font-medium text-gray-600">Email:</span>{' '}
-                    <a href={`mailto:${selectedOrder.buyerEmail}`} className="text-orange-500 hover:text-orange-600">
-                      {selectedOrder.buyerEmail}
-                    </a>
-                  </p>
-                  {selectedOrder.buyerPhone && (
-                    <p className="text-sm">
-                      <span className="font-medium text-gray-600">Phone:</span>{' '}
-                      <a href={`tel:${selectedOrder.buyerPhone}`} className="text-orange-500 hover:text-orange-600">
-                        {selectedOrder.buyerPhone}
-                      </a>
-                    </p>
-                  )}
-                </div>
-                
-                {selectedOrder.deliveryAddress && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Delivery Address</p>
-                    <p className="text-sm text-gray-600">
-                      {selectedOrder.deliveryAddress.street}, {selectedOrder.deliveryAddress.city}, {selectedOrder.deliveryAddress.state}
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Order Status
-                </label>
-                <select
-                  value={orderStatus}
-                  onChange={(e) => setOrderStatus(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
+          )}
+        </div>
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Order Status
+          </label>
+          <select
+            value={orderStatus}
+            onChange={(e) => setOrderStatus(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            disabled={selectedOrder.status === 'cancelled'}
+          >
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
 
-              {orderStatus === 'shipped' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tracking Number
-                    </label>
-                    <input
-                      type="text"
-                      value={trackingInfo.trackingNumber}
-                      onChange={(e) => setTrackingInfo(prev => ({ ...prev, trackingNumber: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      placeholder="Enter tracking number"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Carrier
-                    </label>
-                    <input
-                      type="text"
-                      value={trackingInfo.carrier}
-                      onChange={(e) => setTrackingInfo(prev => ({ ...prev, carrier: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      placeholder="Enter Carrier"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Estimated Delivery Date
-                    </label>
-                    <input
-                      type="date"
-                      value={trackingInfo.estimatedDelivery}
-                      onChange={(e) => setTrackingInfo(prev => ({ ...prev, estimatedDelivery: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <p className="text-xs text-center text-gray-600 mt-2">Cannot be longer than 7 days after order was placed.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Order Items Summary */}
-              {selectedOrder.items && selectedOrder.items.length > 0 && (
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Order Items</p>
-                  <div className="space-y-2">
-                    {selectedOrder.items.slice(0, 3).map((item, idx) => (
-                      <div key={idx} className="text-sm flex justify-between">
-                        <span className="text-gray-600">{item.quantity}x {item.title}</span>
-                        <span className="text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
-                      </div>
-                    ))}
-                    {selectedOrder.items.length > 3 && (
-                      <p className="text-xs text-gray-500">+{selectedOrder.items.length - 3} more items</p>
-                    )}
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between">
-                    <span className="font-medium text-gray-700">Total</span>
-                    <span className="font-bold text-orange-600">₦{selectedOrder.total?.toLocaleString() || 0}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => updateOrderStatus(selectedOrder._id, orderStatus, trackingInfo)}
-                  className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600"
-                >
-                  Update Status
-                </button>
-                <button
-                  onClick={() => {
-                    setShowOrderModal(false);
-                    setSelectedOrder(null);
-                    setOrderStatus('');
-                    setTrackingInfo({ trackingNumber: '', carrier: '', estimatedDelivery: '' });
-                  }}
-                  className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-              
-              {/* Quick Contact Button */}
-              {selectedOrder.buyerPhone && (
-                <div className="mt-4 text-center">
-                  <a
-                    href={`tel:${selectedOrder.buyerPhone}`}
-                    className="text-sm text-orange-500 hover:text-orange-600"
-                  >
-                    📞 Call Buyer to Coordinate Delivery
-                  </a>
-                </div>
-              )}
+        {orderStatus === 'shipped' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tracking Number
+              </label>
+              <input
+                type="text"
+                value={trackingInfo.trackingNumber}
+                onChange={(e) => setTrackingInfo(prev => ({ ...prev, trackingNumber: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                placeholder="Enter tracking number"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Carrier
+              </label>
+              <input
+                type="text"
+                value={trackingInfo.carrier}
+                onChange={(e) => setTrackingInfo(prev => ({ ...prev, carrier: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                placeholder="Enter Carrier"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Estimated Delivery Date
+              </label>
+              <input
+                type="date"
+                value={trackingInfo.estimatedDelivery}
+                onChange={(e) => setTrackingInfo(prev => ({ ...prev, estimatedDelivery: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+              <p className="text-xs text-center text-gray-600 mt-2">Cannot be longer than 7 days after order was placed.</p>
             </div>
           </div>
+        )}
+
+        {/* Order Items Summary */}
+        {selectedOrder.items && selectedOrder.items.length > 0 && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 mb-2">Order Items</p>
+            <div className="space-y-2">
+              {selectedOrder.items.slice(0, 3).map((item, idx) => (
+                <div key={idx} className="text-sm flex justify-between">
+                  <span className="text-gray-600">{item.quantity}x {item.title}</span>
+                  <span className="text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
+                </div>
+              ))}
+              {selectedOrder.items.length > 3 && (
+                <p className="text-xs text-gray-500">+{selectedOrder.items.length - 3} more items</p>
+              )}
+            </div>
+            <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between">
+              <span className="font-medium text-gray-700">Total</span>
+              <span className="font-bold text-orange-600">₦{selectedOrder.total?.toLocaleString() || 0}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={() => updateOrderStatus(selectedOrder._id, orderStatus, trackingInfo)}
+            disabled={selectedOrder.status === 'cancelled'}
+            className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Update Status
+          </button>
+          <button
+            onClick={() => {
+              setShowOrderModal(false);
+              setSelectedOrder(null);
+              setOrderStatus('');
+              setTrackingInfo({ trackingNumber: '', carrier: '', estimatedDelivery: '' });
+            }}
+            className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
+          >
+            Cancel
+          </button>
         </div>
-      )}
+        
+        {/* Quick Contact Button */}
+        {selectedOrder.buyerPhone && selectedOrder.status !== 'cancelled' && (
+          <div className="mt-4 text-center">
+            <a
+              href={`tel:${selectedOrder.buyerPhone}`}
+              className="text-sm text-orange-500 hover:text-orange-600"
+            >
+              📞 Call Buyer to Coordinate Delivery
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Variant Modal */}
       {showVariantModal && (

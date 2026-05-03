@@ -5,6 +5,378 @@ import axios from 'axios';
 import API_BASE_URL from '../config';
 import { User, MapPin, Package, LogOut, Edit2, X, Navigation, Check, AlertCircle, CreditCard, Banknote, Trash2, Plus, Info, Eye, Shield } from 'lucide-react';
 
+// OrderCard Component - Handles individual order display and cancellation timer
+const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }) => {
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  
+  const displayReference = order.reference || order._id;
+  const orderItems = order.items || [];
+  const orderTotal = order.total || 0;
+  const orderStatus = order.status || 'pending';
+  const orderDate = order.createdAt;
+  
+  // Calculate if order is within 24 hours for cancellation
+  const now = new Date();
+  const orderCreatedAt = new Date(orderDate);
+  const hoursSinceOrder = (now - orderCreatedAt) / (1000 * 60 * 60);
+  const canCancel = hoursSinceOrder <= 24;
+  
+  const sellerName = order.seller?.sellerName || order.sellerName || 'Seller';
+  const sellerPhone = order.seller?.sellerPhone || order.sellerPhone;
+  const sellerEmail = order.seller?.sellerEmail || order.sellerEmail;
+  const sellerProfileImage = order.seller?.sellerProfileImage;
+  
+  // Timer effect
+  useEffect(() => {
+    if (!canCancel) return;
+    
+    const timer = setInterval(() => {
+      const now = new Date();
+      const elapsed = (now - orderCreatedAt) / 1000;
+      const remaining = 24 * 60 * 60 - elapsed;
+      
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+      } else {
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const seconds = Math.floor(remaining % 60);
+        setTimeLeft({ hours, minutes, seconds });
+      }
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [canCancel, orderCreatedAt]);
+  
+  const handleCancelOrder = async () => {
+    setCancelling(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_BASE_URL}/orders/${order._id}/cancel`,
+        { cancellationReason },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        alert(response.data.message);
+        if (onOrderCancelled) onOrderCancelled();
+        setShowCancelModal(false);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to cancel order');
+    } finally {
+      setCancelling(false);
+    }
+  };
+  
+  return (
+    <>
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
+        {/* Order Header */}
+        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center">
+          <div>
+            <p className="text-sm text-gray-500 font-mono">
+              Order #{displayReference.slice(-8)}
+            </p>
+            <p className="text-xs text-gray-400">{new Date(orderDate).toLocaleDateString()}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`px-3 py-1 text-xs rounded-full bg-${getOrderStatusColor(orderStatus)}-100 text-${getOrderStatusColor(orderStatus)}-700 capitalize`}>
+              {orderStatus}
+            </span>
+            <p className="font-bold text-gray-900">{formatPrice(orderTotal)}</p>
+          </div>
+        </div>
+        
+        <div className="p-6">
+          
+          {/* Refund Status for Cancelled Orders */}
+          {orderStatus === 'cancelled' && (
+            <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-green-800">Order Cancelled</p>
+                  <p className="text-xs text-green-700">
+                    Refund Status: {order.refundStatus === 'pending' ? 'Pending' : 'Completed'}
+                  </p>
+                  {order.refundAmount && (
+                    <p className="text-xs text-green-700">
+                      Refund Amount: {formatPrice(order.refundAmount)} (95% of total)
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Order Items */}
+          <div className="space-y-3">
+            {orderItems.map((item, idx) => (
+              <div key={idx} className="flex gap-4">
+                <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                  <img 
+                    src={item.image || item.product?.images?.[0] || '/placeholder.png'} 
+                    alt={item.title}
+                    className="w-full h-full object-cover rounded"
+                    onError={(e) => {
+                      e.target.src = '/placeholder.png';
+                    }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">{item.title}</p>
+                  <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
+                  <p className="text-orange-500 font-semibold">{formatPrice(item.price)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Seller Information */}
+          <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+            <div className="flex items-center gap-3 mb-3">
+              {sellerProfileImage ? (
+                <img src={sellerProfileImage} alt={sellerName} className="w-10 h-10 rounded-full object-cover" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-orange-200 flex items-center justify-center">
+                  <span className="text-orange-600 font-semibold">
+                    {sellerName.charAt(0)}
+                  </span>
+                </div>
+              )}
+              <div>
+                <h3 className="font-semibold text-gray-900">Sold by: {sellerName}</h3>
+                <p className="text-xs text-gray-600">Seller</p>
+              </div>
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              {sellerPhone && (
+                <p className="flex items-center gap-2">
+                  <span className="text-gray-600">📞 Phone:</span>
+                  <a href={`tel:${sellerPhone}`} className="text-orange-600 hover:text-orange-700 font-medium">
+                    {sellerPhone}
+                  </a>
+                </p>
+              )}
+              {sellerEmail && (
+                <p className="flex items-center gap-2">
+                  <span className="text-gray-600">✉️ Email:</span>
+                  <a href={`mailto:${sellerEmail}`} className="text-orange-600 hover:text-orange-700">
+                    {sellerEmail}
+                  </a>
+                </p>
+              )}
+            </div>
+          </div>
+          
+          {/* Delivery Address */}
+          {order.deliveryAddress && (
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Delivery Address
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
+              </p>
+            </div>
+          )}
+          
+          {/* Call Seller Button */}
+          {sellerPhone && orderStatus !== 'cancelled' && (
+            <div className="mt-4">
+              <a
+                href={`tel:${sellerPhone}`}
+                className="block text-center w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium"
+              >
+                📞 Call Seller to Arrange Delivery
+              </a>
+            </div>
+          )}
+          {/* Cancellation Timer */}
+          {canCancel && (
+            <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-yellow-800">Cancellation Available</p>
+                  <p className="text-xs text-yellow-700">You can cancel this order within:</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-yellow-800">
+                    {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
+                  </p>
+                  <p className="text-xs text-yellow-700">(5% penalty applies)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="mt-3 w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
+              >
+                Cancel Order
+              </button>
+            </div>
+          )}
+{orderStatus === 'delivered' && !order.deliveryConfirmed && !order.deliveryDisputed && (
+  <div className="mt-4 space-y-3">
+    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+      <p className="text-sm text-blue-800 mb-2">
+        <strong>⚠️ Action Required:</strong> Please confirm if you have received this order.
+      </p>
+      <p className="text-xs text-blue-600 mb-3">
+        You have until {new Date(order.deliveryConfirmationDeadline).toLocaleString()} to confirm or dispute.
+      </p>
+      <div className="flex gap-3">
+        <button
+          onClick={async () => {
+            if (window.confirm('Have you received all items in good condition? Confirming will release payment to the seller.')) {
+              try {
+                const token = localStorage.getItem('token');
+                const response = await axios.post(
+                  `${API_BASE_URL}/orders/${order._id}/confirm-delivery`,
+                  {},
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (response.data.success) {
+                  alert(response.data.message);
+                  onOrderCancelled();
+                }
+              } catch (error) {
+                alert(error.response?.data?.message || 'Failed to confirm delivery');
+              }
+            }
+          }}
+          className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium"
+        >
+          ✓ Confirm Delivery
+        </button>
+        <button
+          onClick={() => {
+            // Show modal for detailed dispute reason
+            const disputeReason = prompt('Please select the reason for dispute:\n\n1. Item not received\n2. Wrong item delivered\n3. Item damaged\n4. Item not as described\n5. Other');
+            if (disputeReason) {
+              const disputeDetails = prompt('Please provide detailed explanation of what happened (be as specific as possible):\n\nInclude information about:\n- When was delivery attempted?\n- What condition was the item in?\n- Have you contacted the seller?\n- Any other relevant details');
+              if (disputeDetails) {
+                (async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const response = await axios.post(
+                      `${API_BASE_URL}/orders/${order._id}/dispute-delivery`,
+                      { disputeReason, disputeDetails },
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    if (response.data.success) {
+                      alert(response.data.message);
+                      onOrderCancelled();
+                    }
+                  } catch (error) {
+                    alert(error.response?.data?.message || 'Failed to file dispute');
+                  }
+                })();
+              } else {
+                alert('Please provide details about the dispute.');
+              }
+            }
+          }}
+          className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
+        >
+          ⚠️ Dispute Delivery
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+          
+{orderStatus === 'delivered' && order.deliveryConfirmed && (
+  <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+    <div className="flex items-center gap-2">
+      <Check className="w-5 h-5 text-green-600" />
+      <p className="text-sm text-green-700 font-medium">Delivery Confirmed</p>
+    </div>
+    <p className="text-xs text-green-600 mt-1">Thank you for confirming your delivery.</p>
+  </div>
+)}
+
+{orderStatus === 'delivered' && order.deliveryDisputed && (
+  <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+    <div className="flex items-center gap-2">
+      <AlertCircle className="w-5 h-5 text-red-600" />
+      <p className="text-sm text-red-700 font-medium">Delivery Disputed</p>
+    </div>
+    <p className="text-xs text-red-600 mt-1">Admin has been notified and will review your case.</p>
+  </div>
+)}
+        </div>
+      </div>
+      
+      {/* Cancellation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-900">Cancel Order</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Please tell us why you're cancelling this order (optional)
+              </p>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cancellation Reason
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  rows="4"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g., Changed my mind, Found a better price, Delivery takes too long, etc."
+                />
+              </div>
+              
+              <div className="p-3 bg-yellow-50 rounded-lg mb-4">
+                <p className="text-xs text-yellow-800">
+                  <strong>Note:</strong> A 5% penalty fee will be deducted from your refund. 
+                  You will receive 95% of the order total back to your bank account within 5-7 business days.
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={cancelling}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 disabled:opacity-50"
+                >
+                  {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setCancellationReason('');
+                  }}
+                  className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 const ProfilePage = () => {
   const { user, setUser, logout } = useData();
   const navigate = useNavigate();
@@ -48,6 +420,9 @@ const ProfilePage = () => {
   const [addressCityLoading, setAddressCityLoading] = useState(false);
   const [selectedAddressState, setSelectedAddressState] = useState('');
   const [selectedAddressCity, setSelectedAddressCity] = useState('');
+
+const [payouts, setPayouts] = useState([]);
+const [loadingPayouts, setLoadingPayouts] = useState(false);
   
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -56,7 +431,7 @@ const ProfilePage = () => {
     phone: '',
     email: ''
   });
-  
+
   const [addressForm, setAddressForm] = useState({
     type: 'home',
     street: '',
@@ -64,7 +439,10 @@ const ProfilePage = () => {
     state: '',
     postalCode: '',
     country: 'Nigeria',
-    isDefault: false
+    isDefault: false,
+    landmark: '',
+    houseDescription: '',
+    askFor: ''
   });
 
   // Fetch banks on component mount
@@ -75,7 +453,6 @@ const ProfilePage = () => {
   // Update bank account when user data loads
   useEffect(() => {
     if (user && user.bankAccount) {
-      // Find bank name from banks list if available
       const bank = banks.find(b => b.code === user.bankAccount.bankCode);
       setBankAccount({
         ...user.bankAccount,
@@ -139,56 +516,52 @@ const ProfilePage = () => {
     }
   };
 
-// Unified save/update bank account using the same endpoint
-const saveBankAccount = async () => {
-  if (!verifiedAccount) return;
-  
-  setVerifyingBank(true);
-  
-  try {
-    const token = localStorage.getItem('token');
-    // Using the unified POST endpoint for both create and update
-    const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
-      accountNumber: verifiedAccount.accountNumber,
-      bankCode: verifiedAccount.bankCode,
-      accountName: verifiedAccount.accountName
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+  // Unified save/update bank account using the same endpoint
+  const saveBankAccount = async () => {
+    if (!verifiedAccount) return;
     
-    if (response.data.success) {
-      const message = response.data.message || 'Bank account saved successfully';
-      alert(message);
+    setVerifyingBank(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
+        accountNumber: verifiedAccount.accountNumber,
+        bankCode: verifiedAccount.bankCode,
+        accountName: verifiedAccount.accountName
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       
-      // Reload the page to fetch fresh user data
-      window.location.reload();
+      if (response.data.success) {
+        const message = response.data.message || 'Bank account saved successfully';
+        alert(message);
+        window.location.reload();
+      }
+    } catch (error) {
+      setBankError(error.response?.data?.message || 'Failed to save bank account');
+      setVerifyingBank(false);
     }
-  } catch (error) {
-    setBankError(error.response?.data?.message || 'Failed to save bank account');
-    setVerifyingBank(false);
-  }
-};
+  };
 
-// Remove bank account
-const removeBankAccount = async () => {
-  if (!window.confirm('Are you sure you want to remove your bank account?')) return;
-  
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.delete(`${API_BASE_URL}/user/bank-account`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+  // Remove bank account
+  const removeBankAccount = async () => {
+    if (!window.confirm('Are you sure you want to remove your bank account?')) return;
     
-    if (response.data.success) {
-      alert('Bank account removed successfully!');
-      // Reload the page to fetch fresh user data
-      window.location.reload();
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`${API_BASE_URL}/user/bank-account`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        alert('Bank account removed successfully!');
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error removing bank account:', error);
+      alert('Failed to remove bank account');
     }
-  } catch (error) {
-    console.error('Error removing bank account:', error);
-    alert('Failed to remove bank account');
-  }
-};
+  };
 
   // Redirect if not logged in
   useEffect(() => {
@@ -212,6 +585,23 @@ const removeBankAccount = async () => {
     }
   }, [user, navigate]);
 
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/user/orders`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setOrders(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Load current delivery location from localStorage
   const loadCurrentLocation = () => {
     const savedState = localStorage.getItem('buyerState');
@@ -222,6 +612,23 @@ const removeBankAccount = async () => {
       setTempCity(savedCity);
     }
   };
+  
+  const fetchPayouts = async () => {
+  setLoadingPayouts(true);
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_BASE_URL}/user/payouts`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.data.success) {
+      setPayouts(response.data.data);
+    }
+  } catch (error) {
+    console.error('Error fetching payouts:', error);
+  } finally {
+    setLoadingPayouts(false);
+  }
+};
 
   // Fetch all Nigerian states
   const fetchStates = async () => {
@@ -275,9 +682,7 @@ const removeBankAccount = async () => {
     try {
       const encodedState = encodeURIComponent(state);
       const url = `${API_BASE_URL}/cities/state/${encodedState}`;
-      
       const response = await axios.get(url);
-
       if (response.data.success) {
         setAvailableCities(response.data.data);
       } else {
@@ -349,28 +754,10 @@ const removeBankAccount = async () => {
     }
   };
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/user/orders`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.success) {
-        setOrders(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const updateProfile = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      
       const updateData = {
         fullName: profileForm.fullName,
         businessName: profileForm.businessName,
@@ -405,6 +792,7 @@ const removeBankAccount = async () => {
     }
   };
 
+  // Update the addAddress function
   const addAddress = async () => {
     if (!addressForm.street || !addressForm.city || !addressForm.state) {
       alert('Please fill in all required fields');
@@ -427,7 +815,10 @@ const removeBankAccount = async () => {
           state: '',
           postalCode: '',
           country: 'Nigeria',
-          isDefault: false
+          isDefault: false,
+          landmark: '',
+          houseDescription: '',
+          askFor: ''
         });
         setSelectedAddressState('');
         setSelectedAddressCity('');
@@ -442,6 +833,7 @@ const removeBankAccount = async () => {
     }
   };
 
+  // Update the updateAddress function
   const updateAddress = async () => {
     setLoading(true);
     try {
@@ -462,7 +854,10 @@ const removeBankAccount = async () => {
           state: '',
           postalCode: '',
           country: 'Nigeria',
-          isDefault: false
+          isDefault: false,
+          landmark: '',
+          houseDescription: '',
+          askFor: ''
         });
         setSelectedAddressState('');
         setSelectedAddressCity('');
@@ -541,6 +936,27 @@ const removeBankAccount = async () => {
     };
     return colors[status] || 'gray';
   };
+  
+  // Update the edit address handler to include new fields
+  const handleEditAddress = (address) => {
+    setEditingAddress(address);
+    setAddressForm({
+      type: address.type,
+      street: address.street,
+      city: address.city,
+      state: address.state,
+      postalCode: address.postalCode || '',
+      country: address.country || 'Nigeria',
+      isDefault: address.isDefault || false,
+      landmark: address.landmark || '',
+      houseDescription: address.houseDescription || '',
+      askFor: address.askFor || ''
+    });
+    setSelectedAddressState(address.state);
+    setSelectedAddressCity(address.city);
+    fetchAddressCities(address.state);
+    setShowAddressForm(true);
+  };
 
   if (!user) {
     return (
@@ -573,8 +989,8 @@ const removeBankAccount = async () => {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="w-full flex space-x-4 overflow-x-auto">
+      <div className="border-b w-full border-gray-200 mb-6">
+        <nav className="w-[calc(100vw-30px)] flex overflow-hidden scrollbar-hide space-x-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('profile')}
             className={`pb-4 px-1 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
@@ -608,6 +1024,21 @@ const removeBankAccount = async () => {
             <Package className="w-4 h-4 hidden md:inline-block" />
             My Orders
           </button>
+
+<button
+  onClick={() => {
+    setActiveTab('payouts');
+    fetchPayouts();
+  }}
+  className={`pb-4 px-1 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
+    activeTab === 'payouts'
+      ? 'border-b-2 border-orange-500 text-orange-600'
+      : 'text-gray-500 hover:text-gray-700'
+  }`}
+>
+  <Banknote className="w-4 h-4 hidden md:inline-block" />
+  Payouts
+</button>
         </nav>
       </div>
 
@@ -772,17 +1203,6 @@ const removeBankAccount = async () => {
                         <p className="text-sm text-gray-700 mt-1">
                           Account Name: {bankAccount.verifiedAccountName || bankAccount.accountName}
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <div className="flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5 text-green-600" />
-                            <span className="text-xs text-green-700">Verified with Paystack</span>
-                          </div>
-                          {bankAccount.verifiedAt && (
-                            <span className="text-xs text-gray-400">
-                              Verified: {new Date(bankAccount.verifiedAt).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
                       </div>
                     </div>
                     <button
@@ -1125,278 +1545,317 @@ const removeBankAccount = async () => {
         </div>
       )}
 
-      {/* Addresses Tab */}
-      {activeTab === 'addresses' && (
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Saved Addresses</h2>
+{/* Addresses Tab */}
+{activeTab === 'addresses' && (
+  <div>
+    <div className="flex justify-between items-center mb-6">
+      <h2 className="text-lg font-semibold text-gray-900">Saved Addresses</h2>
+      <button
+        onClick={() => {
+          setEditingAddress(null);
+          setAddressForm({
+            type: 'home',
+            street: '',
+            city: '',
+            state: '',
+            postalCode: '',
+            country: 'Nigeria',
+            isDefault: addresses.length === 0,
+            landmark: '',
+            houseDescription: '',
+            askFor: ''
+          });
+          setSelectedAddressState('');
+          setSelectedAddressCity('');
+          setAddressCities([]);
+          setShowAddressForm(true);
+        }}
+        className="bg-orange-500 text-xs text-white px-3 py-2 rounded-lg hover:bg-orange-600 transition"
+      >
+        + Add New Address
+      </button>
+    </div>
+
+    {addresses.length === 0 && !showAddressForm ? (
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
+        <MapPin className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">No saved addresses</p>
+        <p className="text-sm text-gray-400 mt-1">Add a delivery address to speed up checkout</p>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {addresses.map((address) => (
+          <div key={address._id} className="bg-white border border-gray-200 rounded-lg p-4 relative hover:shadow-md transition">
+            {address.isDefault && (
+              <span className="absolute top-4 right-4 bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
+                Default
+              </span>
+            )}
+            <div className="mb-3">
+              <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded capitalize">
+                {address.type}
+              </span>
+            </div>
+            <p className="text-gray-900 mb-1 font-medium">{address.street}</p>
+            {address.houseDescription && (
+              <p className="text-sm text-gray-600 mb-1">{address.houseDescription}</p>
+            )}
+            {address.landmark && (
+              <p className="text-sm text-gray-600 mb-1">📍 Landmark: {address.landmark}</p>
+            )}
+            {address.askFor && (
+              <p className="text-sm text-gray-600 mb-1">👤 Ask for: {address.askFor}</p>
+            )}
+            <p className="text-gray-600 text-sm">
+              {address.city}, {address.state} {address.postalCode}
+            </p>
+            <p className="text-gray-600 text-sm">{address.country}</p>
+            <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
+              <button
+                onClick={() => handleEditAddress(address)}
+                className="text-blue-500 hover:text-blue-600 text-sm"
+              >
+                Edit
+              </button>
+              {!address.isDefault && (
+                <>
+                  <button
+                    onClick={() => setDefaultAddress(address._id)}
+                    className="text-green-500 hover:text-green-600 text-sm"
+                  >
+                    Set as Default
+                  </button>
+                  <button
+                    onClick={() => deleteAddress(address._id)}
+                    className="text-red-500 hover:text-red-600 text-sm"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Address Form Modal */}
+    {showAddressForm && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {editingAddress ? 'Edit Address' : 'Add New Address'}
+            </h2>
             <button
               onClick={() => {
+                setShowAddressForm(false);
                 setEditingAddress(null);
-                setAddressForm({
-                  type: 'home',
-                  street: '',
-                  city: '',
-                  state: '',
-                  postalCode: '',
-                  country: 'Nigeria',
-                  isDefault: addresses.length === 0
-                });
                 setSelectedAddressState('');
                 setSelectedAddressCity('');
                 setAddressCities([]);
-                setShowAddressForm(true);
               }}
-              className="bg-orange-500 text-xs text-white px-3 py-2 rounded-lg hover:bg-orange-600 transition"
+              className="text-gray-400 hover:text-gray-600"
             >
-              + Add New Address
+              <X className="w-5 h-5" />
             </button>
           </div>
-
-          {addresses.length === 0 && !showAddressForm ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <MapPin className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500">No saved addresses</p>
-              <p className="text-sm text-gray-400 mt-1">Add a delivery address to speed up checkout</p>
+          
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Address Type
+              </label>
+              <select
+                value={addressForm.type}
+                onChange={(e) => setAddressForm({ ...addressForm, type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="home">Home</option>
+                <option value="work">Work</option>
+                <option value="other">Other</option>
+              </select>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {addresses.map((address) => (
-                <div key={address._id} className="bg-white border border-gray-200 rounded-lg p-4 relative hover:shadow-md transition">
-                  {address.isDefault && (
-                    <span className="absolute top-4 right-4 bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
-                      Default
-                    </span>
-                  )}
-                  <div className="mb-3">
-                    <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded capitalize">
-                      {address.type}
-                    </span>
-                  </div>
-                  <p className="text-gray-900 mb-1 font-medium">{address.street}</p>
-                  <p className="text-gray-600 text-sm">
-                    {address.city}, {address.state} {address.postalCode}
-                  </p>
-                  <p className="text-gray-600 text-sm">{address.country}</p>
-                  <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => {
-                        setEditingAddress(address);
-                        setAddressForm({
-                          type: address.type,
-                          street: address.street,
-                          city: address.city,
-                          state: address.state,
-                          postalCode: address.postalCode,
-                          country: address.country,
-                          isDefault: address.isDefault
-                        });
-                        setSelectedAddressState(address.state);
-                        setSelectedAddressCity(address.city);
-                        fetchAddressCities(address.state);
-                        setShowAddressForm(true);
-                      }}
-                      className="text-blue-500 hover:text-blue-600 text-sm"
-                    >
-                      Edit
-                    </button>
-                    {!address.isDefault && (
-                      <>
-                        <button
-                          onClick={() => setDefaultAddress(address._id)}
-                          className="text-green-500 hover:text-green-600 text-sm"
-                        >
-                          Set as Default
-                        </button>
-                        <button
-                          onClick={() => deleteAddress(address._id)}
-                          className="text-red-500 hover:text-red-600 text-sm"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                State <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedAddressState}
+                onChange={(e) => handleAddressStateChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Select your state</option>
+                {addressStates.map(state => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
+              </select>
             </div>
-          )}
 
-          {/* Address Form Modal */}
-          {showAddressForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    {editingAddress ? 'Edit Address' : 'Add New Address'}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setShowAddressForm(false);
-                      setEditingAddress(null);
-                      setSelectedAddressState('');
-                      setSelectedAddressCity('');
-                      setAddressCities([]);
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                <div className="p-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Address Type
-                    </label>
-                    <select
-                      value={addressForm.type}
-                      onChange={(e) => setAddressForm({ ...addressForm, type: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="home">Home</option>
-                      <option value="work">Work</option>
-                      <option value="other">Other</option>
-                    </select>
+            {selectedAddressState && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  City <span className="text-red-500">*</span>
+                </label>
+                {addressCityLoading ? (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg">
+                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div>
+                    <p className="text-xs text-gray-500 mt-1">Loading cities...</p>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      State <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={selectedAddressState}
-                      onChange={(e) => handleAddressStateChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="">Select your state</option>
-                      {addressStates.map(state => (
-                        <option key={state} value={state}>{state}</option>
-                      ))}
-                    </select>
+                ) : addressCities.length > 0 ? (
+                  <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                    {addressCities.map(city => (
+                      <button
+                        key={city}
+                        onClick={() => handleAddressCitySelect(city)}
+                        className={`w-full text-left px-4 py-2 hover:bg-orange-50 transition ${
+                          selectedAddressCity === city ? 'bg-orange-50 text-orange-600 font-medium border-l-2 border-orange-500' : 'text-gray-700'
+                        }`}
+                      >
+                        {city}
+                      </button>
+                    ))}
                   </div>
-
-                  {selectedAddressState && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        City <span className="text-red-500">*</span>
-                      </label>
-                      {addressCityLoading ? (
-                        <div className="text-center py-4 bg-gray-50 rounded-lg">
-                          <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div>
-                          <p className="text-xs text-gray-500 mt-1">Loading cities...</p>
-                        </div>
-                      ) : addressCities.length > 0 ? (
-                        <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
-                          {addressCities.map(city => (
-                            <button
-                              key={city}
-                              onClick={() => handleAddressCitySelect(city)}
-                              className={`w-full text-left px-4 py-2 hover:bg-orange-50 transition ${
-                                selectedAddressCity === city ? 'bg-orange-50 text-orange-600 font-medium border-l-2 border-orange-500' : 'text-gray-700'
-                              }`}
-                            >
-                              {city}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
-                          <p className="text-sm text-gray-500">No cities found</p>
-                          <p className="text-xs text-gray-400 mt-1">Please select a different state</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {selectedAddressState && selectedAddressCity && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Street Address <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={addressForm.street}
-                          onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                          placeholder="House number, street name, landmark"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Postal Code <span className="text-gray-400 text-xs">(Optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={addressForm.postalCode}
-                          onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                          placeholder="e.g., 100001"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Country
-                        </label>
-                        <input
-                          type="text"
-                          value="Nigeria"
-                          disabled
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-                        />
-                      </div>
-
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={addressForm.isDefault}
-                          onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
-                          className="rounded border-gray-300 focus:ring-orange-500"
-                        />
-                        <span className="text-sm text-gray-700">Set as default address</span>
-                      </label>
-                    </>
-                  )}
-
-                  {selectedAddressState && selectedAddressCity && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-xs text-green-700 flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        Address location: <strong>{selectedAddressCity}, {selectedAddressState}</strong>
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={editingAddress ? updateAddress : addAddress}
-                      disabled={loading || !selectedAddressState || !selectedAddressCity || !addressForm.street}
-                      className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? 'Saving...' : (editingAddress ? 'Update Address' : 'Add Address')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowAddressForm(false);
-                        setEditingAddress(null);
-                        setSelectedAddressState('');
-                        setSelectedAddressCity('');
-                        setAddressCities([]);
-                      }}
-                      className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
+                ) : (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-500">No cities found</p>
+                    <p className="text-xs text-gray-400 mt-1">Please select a different state</p>
                   </div>
-                </div>
+                )}
               </div>
+            )}
+
+            {selectedAddressState && selectedAddressCity && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Street Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressForm.street}
+                    onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    placeholder="House number, street name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    House/Building Description
+                  </label>
+                  <textarea
+                    value={addressForm.houseDescription}
+                    onChange={(e) => setAddressForm({ ...addressForm, houseDescription: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    placeholder="e.g., Blue gate, 2-storey building, Opposite the church"
+                    rows="2"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Help the delivery rider identify your building</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nearest Landmark
+                  </label>
+                  <input
+                    type="text"
+                    value={addressForm.landmark}
+                    onChange={(e) => setAddressForm({ ...addressForm, landmark: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    placeholder="e.g., Near the market, Beside the bank"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">A well-known location near your address</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Who to Ask For
+                  </label>
+                  <input
+                    type="text"
+                    value={addressForm.askFor}
+                    onChange={(e) => setAddressForm({ ...addressForm, askFor: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    placeholder="e.g., Security guard, Receptionist, John"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Name or title of the person to contact upon arrival</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Postal Code <span className="text-gray-400 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressForm.postalCode}
+                    onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    placeholder="e.g., 100001"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    value="Nigeria"
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={addressForm.isDefault}
+                    onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
+                    className="rounded border-gray-300 focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-gray-700">Set as default address</span>
+                </label>
+              </>
+            )}
+
+            {selectedAddressState && selectedAddressCity && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-xs text-green-700 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Address location: <strong>{selectedAddressCity}, {selectedAddressState}</strong>
+                </p>
+              </div>
+            )}
+            
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={editingAddress ? updateAddress : addAddress}
+                disabled={loading || !selectedAddressState || !selectedAddressCity || !addressForm.street}
+                className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Saving...' : (editingAddress ? 'Update Address' : 'Add Address')}
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddressForm(false);
+                  setEditingAddress(null);
+                  setSelectedAddressState('');
+                  setSelectedAddressCity('');
+                  setAddressCities([]);
+                }}
+                className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
+              >
+                Cancel
+              </button>
             </div>
-          )}
+          </div>
         </div>
-      )}
+      </div>
+    )}
+  </div>
+)}
 
       {/* Orders Tab */}
       {activeTab === 'orders' && (
@@ -1420,139 +1879,76 @@ const removeBankAccount = async () => {
             </div>
           ) : (
             <div className="space-y-6">
-              {orders.map((order) => {
-                const displayReference = order.reference || order._id;
-                const orderItems = order.items || [];
-                const orderTotal = order.total || 0;
-                const orderStatus = order.status || 'pending';
-                const orderDate = order.createdAt;
-                
-                const sellerName = order.seller?.sellerName || order.sellerName || 'Seller';
-                const sellerPhone = order.seller?.sellerPhone || order.sellerPhone;
-                const sellerEmail = order.seller?.sellerEmail || order.sellerEmail;
-                const sellerProfileImage = order.seller?.sellerProfileImage;
-                
-                return (
-                  <div key={order._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center">
-                      <div>
-                        <p className="text-sm text-gray-500 font-mono">
-                          Order #{displayReference.slice(-8)}
-                        </p>
-                        <p className="text-xs text-gray-400">{new Date(orderDate).toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 text-xs rounded-full bg-${getOrderStatusColor(orderStatus)}-100 text-${getOrderStatusColor(orderStatus)}-700 capitalize`}>
-                          {orderStatus}
-                        </span>
-                        <p className="font-bold text-gray-900">{formatPrice(orderTotal)}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="p-6">
-                      <div className="space-y-3">
-                        {orderItems.map((item, idx) => (
-                          <div key={idx} className="flex gap-4">
-                            <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                              <img 
-                                src={item.image || item.product?.images?.[0] || '/placeholder.png'} 
-                                alt={item.title}
-                                className="w-full h-full object-cover rounded"
-                                onError={(e) => {
-                                  e.target.src = '/placeholder.png';
-                                }}
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900">{item.title}</p>
-                              <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
-                              <p className="text-orange-500 font-semibold">{formatPrice(item.price)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                        <div className="flex items-center gap-3 mb-3">
-                          {sellerProfileImage ? (
-                            <img src={sellerProfileImage} alt={sellerName} className="w-10 h-10 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-orange-200 flex items-center justify-center">
-                              <span className="text-orange-600 font-semibold">
-                                {sellerName.charAt(0)}
-                              </span>
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="font-semibold text-gray-900">Sold by: {sellerName}</h3>
-                            <p className="text-xs text-gray-600">Seller</p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2 text-sm">
-                          {sellerPhone && (
-                            <p className="flex items-center gap-2">
-                              <span className="text-gray-600">📞 Phone:</span>
-                              <a href={`tel:${sellerPhone}`} className="text-orange-600 hover:text-orange-700 font-medium">
-                                {sellerPhone}
-                              </a>
-                            </p>
-                          )}
-                          {sellerEmail && (
-                            <p className="flex items-center gap-2">
-                              <span className="text-gray-600">✉️ Email:</span>
-                              <a href={`mailto:${sellerEmail}`} className="text-orange-600 hover:text-orange-700">
-                                {sellerEmail}
-                              </a>
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className="mt-3 pt-3 border-t border-orange-200">
-                          <p className="text-xs text-gray-600">
-                            <strong>💡 Note:</strong> Contact the seller directly to coordinate delivery.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {order.deliveryAddress && (
-                        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                            <MapPin className="w-4 h-4" />
-                            Delivery Address
-                          </p>
-                          <p className="text-xs text-gray-600 mt-1">
-                            {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {order.trackingInfo && (orderStatus === 'shipped' || orderStatus === 'processing') && (
-                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm font-medium text-blue-900">Tracking Information</p>
-                          <p className="text-xs text-blue-700">Tracking #: {order.trackingInfo.trackingNumber}</p>
-                          <p className="text-xs text-blue-700">Carrier: {order.trackingInfo.carrier}</p>
-                        </div>
-                      )}
-                      
-                      {sellerPhone && (
-                        <div className="mt-4">
-                          <a
-                            href={`tel:${sellerPhone}`}
-                            className="block text-center w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium"
-                          >
-                            📞 Call Seller to Arrange Delivery
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {orders.map((order) => (
+                <OrderCard 
+                  key={order._id}
+                  order={order}
+                  formatPrice={formatPrice}
+                  getOrderStatusColor={getOrderStatusColor}
+                  onOrderCancelled={fetchOrders}
+                />
+              ))}
             </div>
           )}
         </div>
       )}
+      
+{activeTab === 'payouts' && (
+  <div>
+    <h2 className="text-xl font-semibold text-gray-900 mb-6">My Payouts</h2>
+    
+    {loadingPayouts ? (
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    ) : payouts.length === 0 ? (
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
+        <Banknote className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">No payouts yet</p>
+        <p className="text-sm text-gray-400 mt-1">When you sell products and deliveries are confirmed, payouts will appear here</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {payouts.map((payout) => (
+          <div key={payout._id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <p className="font-mono text-sm font-medium text-gray-900">
+                  Order #{payout.orderReference?.slice(-8)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {new Date(payout.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                payout.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                payout.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                'bg-green-100 text-green-700'
+              }`}>
+                {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
+              </span>
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Order Total:</span>
+                <span className="font-medium">{formatPrice(payout.originalAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Platform Fee (5%):</span>
+                <span className="text-red-600">{formatPrice(payout.platformFee)}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-gray-100">
+                <span className="font-semibold text-gray-900">Your Payout:</span>
+                <span className="font-bold text-green-600">{formatPrice(payout.amount)}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
     </div>
   );
 };
