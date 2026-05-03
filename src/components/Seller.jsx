@@ -19,7 +19,7 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
   const now = new Date();
   const orderCreatedAt = new Date(orderDate);
   const daysSinceOrder = (now - orderCreatedAt) / (1000 * 60 * 60 * 24);
-  const canCancel = daysSinceOrder <= 7;
+  const canCancel = order.status !== 'delivered' && !order.deliveryDisputed && daysSinceOrder <= 7;
   
   // Timer effect for seller cancellation (7 days countdown)
   useEffect(() => {

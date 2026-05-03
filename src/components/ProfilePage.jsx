@@ -22,7 +22,7 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
   const now = new Date();
   const orderCreatedAt = new Date(orderDate);
   const hoursSinceOrder = (now - orderCreatedAt) / (1000 * 60 * 60);
-  const canCancel = hoursSinceOrder <= 24;
+  const canCancel = order.status !== 'delivered' && !order.deliveryDisputed && hoursSinceOrder <= 24;
   
   const sellerName = order.seller?.sellerName || order.sellerName || 'Seller';
   const sellerPhone = order.seller?.sellerPhone || order.sellerPhone;
