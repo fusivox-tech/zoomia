@@ -989,12 +989,12 @@ const checkCanSell = async () => {
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">5</div>
                 <h3 className="font-semibold text-gray-900 mb-2">Deliver The Order</h3>
-                <p className="text-sm text-gray-600">Deliver the ordered product(s) to the customer with good customer service</p>
+                <p className="text-sm text-gray-600">Deliver the ordered product(s) to the customer within 7 days</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">6</div>
                 <h3 className="font-semibold text-gray-900 mb-2">Get Paid</h3>
-                <p className="text-sm text-gray-600">Receive payments directly to your account after buyer marks the order as delivered</p>
+                <p className="text-sm text-gray-600">Receive payments directly to your payout account 24 hours after delivery</p>
               </div>
             </div>
           </div>
