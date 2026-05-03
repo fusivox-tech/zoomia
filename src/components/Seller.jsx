@@ -1,5 +1,4 @@
-// Seller.jsx 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -417,16 +416,13 @@ const Seller = () => {
   const [fetchingListings, setFetchingListings] = useState(false);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [activeTab, setActiveTab] = useState('inventory');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   
   // Modal states
   const [showListingModal, setShowListingModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
   
   // Form states
   const [editingProduct, setEditingProduct] = useState(null);
@@ -512,8 +508,7 @@ const Seller = () => {
       
       Promise.all([
         fetchSellerProducts(),
-        fetchSellerOrders(),
-        fetchSellerCustomers()
+        fetchSellerOrders()
       ]).finally(() => {
         console.log('All data fetched, setting isDataLoaded to true');
         setIsDataLoaded(true);
@@ -592,25 +587,6 @@ const Seller = () => {
     } catch (error) {
       console.error('Error fetching orders:', error);
       setOrders([]);
-    }
-  };
-
-  const fetchSellerCustomers = async () => {
-    try {
-      const token = getAuthToken();
-      const response = await axios.get(`${API_BASE_URL}/customers/seller/${user._id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.data.success) {
-        setCustomers(response.data.data || []);
-      } else {
-        setCustomers([]);
-      }
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      setCustomers([]);
     }
   };
 
@@ -1126,11 +1102,11 @@ const Seller = () => {
 
   // Rest of the component (Dashboard for sellers with products)
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-4">
         <h1 className="text-3xl font-bold text-gray-900">Seller Dashboard</h1>
-        <p className="text-gray-600 mt-2">Manage your inventory, orders, and customers</p>
+        <p className="text-gray-600">Manage your inventory and orders</p>
       </div>
 
       {/* Message Alert */}
@@ -1144,7 +1120,7 @@ const Seller = () => {
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1162,16 +1138,6 @@ const Seller = () => {
               <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
             </div>
             <Truck className="w-8 h-8 text-orange-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm">Total Customers</p>
-              <p className="text-2xl font-bold text-gray-900">{customers.length}</p>
-            </div>
-            <Users className="w-8 h-8 text-orange-500" />
           </div>
         </div>
         
@@ -1215,16 +1181,6 @@ const Seller = () => {
             }`}
           >
             Order Management
-          </button>
-          <button
-            onClick={() => setActiveTab('customers')}
-            className={`pb-4 px-1 font-medium text-sm ${
-              activeTab === 'customers'
-                ? 'border-b-2 border-orange-500 text-orange-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Customer Management
           </button>
         </nav>
       </div>
@@ -1302,7 +1258,7 @@ const Seller = () => {
         </div>
       )}
 
-      {/* Orders Tab */}
+      {/* Orders Tab - Card View */}
       {activeTab === 'orders' && (
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Management</h2>
@@ -1313,112 +1269,107 @@ const Seller = () => {
               <p className="text-sm text-gray-400 mt-1">When customers order your products, they'll appear here</p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {orders.map((order) => (
-                    <tr key={order._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        #{order.reference?.slice(-8) || order._id.slice(-8)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {order.fullName || order.email}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {order.items?.length || 0} items
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        ₦{order.total?.toLocaleString() || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs rounded-full bg-${getOrderStatusColor(order.status)}-100 text-${getOrderStatusColor(order.status)}-700`}>
-                          {order.status || 'pending'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(order.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedOrder(order);
-                            setOrderStatus(order.status || 'pending');
-                            setShowOrderModal(true);
-                          }}
-                          className="text-orange-500 hover:text-orange-600 font-medium"
-                        >
-                          Update Status
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Customers Tab */}
-      {activeTab === 'customers' && (
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Customer Management</h2>
-          {customers.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <Users className="w-16 h-16 mx-auto mb-3 text-gray-300" />
-              <p className="text-gray-500">No customers yet</p>
-              <p className="text-sm text-gray-400 mt-1">When customers buy your products, they'll appear here</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {customers.map((customer) => (
-                <div key={customer._id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
-                  <div className="flex items-center gap-4 mb-4">
-                    {customer.profileImage ? (
-                      <img src={customer.profileImage} alt={customer.fullName} className="w-12 h-12 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                        <span className="text-orange-500 text-lg font-semibold">
-                          {customer.fullName?.charAt(0) || 'C'}
-                        </span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {orders.map((order) => (
+                <div key={order._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
+                  {/* Order Header */}
+                  <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-white text-sm font-mono">
+                          Order #{order.reference?.slice(-8) || order._id.slice(-8)}
+                        </p>
+                        <p className="text-orange-100 text-xs mt-1">
+                          {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString()}
+                        </p>
                       </div>
-                    )}
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{customer.fullName}</h3>
-                      <p className="text-sm text-gray-500">{customer.email}</p>
+                      <span className={`px-3 py-1 text-xs rounded-full bg-white/20 text-white capitalize`}>
+                        {order.status || 'pending'}
+                      </span>
                     </div>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <p className="text-gray-600">
-                      <span className="font-medium">Total Orders:</span> {customer.totalOrders || 0}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-medium">Total Spent:</span> ₦{customer.totalSpent?.toLocaleString() || 0}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-medium">Joined:</span> {new Date(customer.createdAt).toLocaleDateString()}
-                    </p>
+                  
+                  <div className="p-6">
+                    {/* Customer Information */}
+                    <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+                        <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                          <span className="text-orange-500 text-lg font-semibold">
+                            {order.buyerFullName?.charAt(0) || 'C'}
+                          </span>
+                        </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{order.buyerFullName || 'Guest Customer'}</p>
+                        <p className="text-sm text-gray-500">{order.buyerEmail}</p>
+                        {order.buyerPhone && (
+                          <a href={`tel:${order.buyerPhone}`} className="text-sm text-orange-500 hover:text-orange-600 inline-flex items-center gap-1 mt-1">
+                            📞 {order.buyerPhone}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Order Items */}
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Items Ordered ({order.items?.length || 0})</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {order.items?.map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-sm">
+                            <div className="flex items-center gap-2">
+                              {item.product?.images?.[0] && (
+                                <img src={item.product.images[0]} alt={item.title} className="w-8 h-8 rounded object-cover" />
+                              )}
+                              <span className="text-gray-700">{item.quantity}x {item.title}</span>
+                            </div>
+                            <span className="font-medium text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Delivery Address */}
+                    {order.deliveryAddress && (
+                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
+                          📍 Delivery Address
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Tracking Info */}
+                    {order.trackingInfo && (order.status === 'shipped' || order.status === 'processing') && (
+                      <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-xs font-medium text-blue-800 mb-1">📦 Tracking Information</p>
+                        <p className="text-xs text-blue-700">Tracking #: {order.trackingInfo.trackingNumber}</p>
+                        <p className="text-xs text-blue-700">Carrier: {order.trackingInfo.carrier}</p>
+                      </div>
+                    )}
+                    
+                    {/* Order Total and Actions */}
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                      <div>
+                        <p className="text-xs text-gray-500">Total Amount</p>
+                        <p className="text-xl font-bold text-orange-600">₦{order.total?.toLocaleString() || 0}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setOrderStatus(order.status || 'pending');
+                          setTrackingInfo({
+                            trackingNumber: order.trackingInfo?.trackingNumber || '',
+                            carrier: order.trackingInfo?.carrier || '',
+                            estimatedDelivery: order.trackingInfo?.estimatedDelivery || ''
+                          });
+                          setShowOrderModal(true);
+                        }}
+                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
+                      >
+                        Update Status
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedCustomer(customer);
-                      setShowCustomerModal(true);
-                    }}
-                    className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm"
-                  >
-                    View Details
-                  </button>
                 </div>
               ))}
             </div>
@@ -1462,13 +1413,47 @@ const Seller = () => {
       {/* Order Status Update Modal */}
       {showOrderModal && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="border-b border-gray-200 px-6 py-4">
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
               <h2 className="text-xl font-semibold text-gray-900">Update Order Status</h2>
               <p className="text-sm text-gray-500 mt-1">Order #{selectedOrder.reference?.slice(-8) || selectedOrder._id.slice(-8)}</p>
             </div>
             
             <div className="p-6">
+              {/* Buyer Information Section */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Buyer Information</h3>
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    <span className="font-medium text-gray-600">Name:</span>{' '}
+                    <span className="text-gray-900">{selectedOrder.buyerFullName || 'Guest'}</span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium text-gray-600">Email:</span>{' '}
+                    <a href={`mailto:${selectedOrder.buyerEmail}`} className="text-orange-500 hover:text-orange-600">
+                      {selectedOrder.buyerEmail}
+                    </a>
+                  </p>
+                  {selectedOrder.buyerPhone && (
+                    <p className="text-sm">
+                      <span className="font-medium text-gray-600">Phone:</span>{' '}
+                      <a href={`tel:${selectedOrder.buyerPhone}`} className="text-orange-500 hover:text-orange-600">
+                        {selectedOrder.buyerPhone}
+                      </a>
+                    </p>
+                  )}
+                </div>
+                
+                {selectedOrder.deliveryAddress && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Delivery Address</p>
+                    <p className="text-sm text-gray-600">
+                      {selectedOrder.deliveryAddress.street}, {selectedOrder.deliveryAddress.city}, {selectedOrder.deliveryAddress.state}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Order Status
@@ -1476,7 +1461,7 @@ const Seller = () => {
                 <select
                   value={orderStatus}
                   onChange={(e) => setOrderStatus(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="pending">Pending</option>
                   <option value="processing">Processing</option>
@@ -1487,8 +1472,8 @@ const Seller = () => {
               </div>
 
               {orderStatus === 'shipped' && (
-                <>
-                  <div className="mb-4">
+                <div className="space-y-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Tracking Number
                     </label>
@@ -1500,7 +1485,7 @@ const Seller = () => {
                       placeholder="Enter tracking number"
                     />
                   </div>
-                  <div className="mb-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Carrier
                     </label>
@@ -1512,7 +1497,7 @@ const Seller = () => {
                       placeholder="e.g., UPS, FedEx, DHL"
                     />
                   </div>
-                  <div className="mb-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Estimated Delivery Date
                     </label>
@@ -1523,7 +1508,29 @@ const Seller = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
                   </div>
-                </>
+                </div>
+              )}
+
+              {/* Order Items Summary */}
+              {selectedOrder.items && selectedOrder.items.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Order Items</p>
+                  <div className="space-y-2">
+                    {selectedOrder.items.slice(0, 3).map((item, idx) => (
+                      <div key={idx} className="text-sm flex justify-between">
+                        <span className="text-gray-600">{item.quantity}x {item.title}</span>
+                        <span className="text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {selectedOrder.items.length > 3 && (
+                      <p className="text-xs text-gray-500">+{selectedOrder.items.length - 3} more items</p>
+                    )}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between">
+                    <span className="font-medium text-gray-700">Total</span>
+                    <span className="font-bold text-orange-600">₦{selectedOrder.total?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
               )}
 
               <div className="flex gap-3 mt-6">
@@ -1545,78 +1552,16 @@ const Seller = () => {
                   Cancel
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer Details Modal */}
-      {showCustomerModal && selectedCustomer && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900">Customer Details</h2>
-              <button
-                onClick={() => {
-                  setShowCustomerModal(false);
-                  setSelectedCustomer(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <div className="flex items-center gap-4 mb-6">
-                {selectedCustomer.profileImage ? (
-                  <img src={selectedCustomer.profileImage} alt={selectedCustomer.fullName} className="w-16 h-16 rounded-full object-cover" />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
-                    <span className="text-orange-500 text-2xl font-semibold">
-                      {selectedCustomer.fullName?.charAt(0) || 'C'}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-lg">{selectedCustomer.fullName}</h3>
-                  <p className="text-gray-500">{selectedCustomer.email}</p>
-                  {selectedCustomer.phone && <p className="text-gray-500 text-sm">{selectedCustomer.phone}</p>}
-                </div>
-              </div>
-
-              <div className="space-y-3 border-t border-gray-200 pt-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Orders</span>
-                  <span className="font-semibold text-gray-900">{selectedCustomer.totalOrders || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Spent</span>
-                  <span className="font-semibold text-gray-900">₦{selectedCustomer.totalSpent?.toLocaleString() || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Joined Date</span>
-                  <span className="font-semibold text-gray-900">{new Date(selectedCustomer.createdAt).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Last Order</span>
-                  <span className="font-semibold text-gray-900">{selectedCustomer.lastOrderDate ? new Date(selectedCustomer.lastOrderDate).toLocaleDateString() : 'N/A'}</span>
-                </div>
-              </div>
-
-              {selectedCustomer.recentOrders && selectedCustomer.recentOrders.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Recent Orders</h4>
-                  <div className="space-y-2">
-                    {selectedCustomer.recentOrders.map((order, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span className="text-gray-600">Order #{order.reference?.slice(-8)}</span>
-                        <span className="font-medium text-gray-900">₦{order.total?.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
+              
+              {/* Quick Contact Button */}
+              {selectedOrder.buyerPhone && (
+                <div className="mt-4 text-center">
+                  <a
+                    href={`tel:${selectedOrder.buyerPhone}`}
+                    className="text-sm text-orange-500 hover:text-orange-600"
+                  >
+                    📞 Call Buyer to Coordinate Delivery
+                  </a>
                 </div>
               )}
             </div>
