@@ -113,21 +113,14 @@ const handleProceedToCheckout = () => {
       calculatedSubtotal: totalProductPrice,
       calculatedTotal: totalProductPrice + totalShipping,
       perItemShipping: itemShippingCost,
-      // Ensure seller email is included - try multiple sources
-      sellerEmail: item.sellerEmail || item.productData?.sellerEmail || user?.email,
-      sellerName: item.sellerName || user?.fullName || 'Seller'
     };
   });
-  
-  // Store seller emails separately for easy access
-  const sellerEmails = [...new Set(itemsForCheckout.map(item => item.sellerEmail).filter(email => email))];
   
   const overallSubtotal = itemsForCheckout.reduce((sum, item) => sum + item.calculatedSubtotal, 0);
   const overallShipping = itemsForCheckout.reduce((sum, item) => sum + item.calculatedShipping, 0);
   const overallTotal = overallSubtotal + overallShipping;
   
   localStorage.setItem('selectedCartItems', JSON.stringify(itemsForCheckout));
-  localStorage.setItem('sellerEmails', JSON.stringify(sellerEmails));
   localStorage.setItem('checkoutTotals', JSON.stringify({
     subtotal: overallSubtotal,
     shipping: overallShipping,

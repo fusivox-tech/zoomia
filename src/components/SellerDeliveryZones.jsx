@@ -1,4 +1,4 @@
-// components/SellerDeliveryZones.jsx - Updated with pagination
+// components/SellerDeliveryZones.jsx 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../config';
@@ -12,8 +12,6 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
   const [loading, setLoading] = useState(false);
   const [deliveryZones, setDeliveryZones] = useState(currentZones);
   const [loadingZones, setLoadingZones] = useState(false);
-  const [zonesPage, setZonesPage] = useState(1);
-  const [hasMoreZones, setHasMoreZones] = useState(true);
   const [totalZones, setTotalZones] = useState(0);
   
   // Bulk add states
@@ -52,30 +50,22 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
   // Expanded zones for UI
   const [expandedZone, setExpandedZone] = useState(null);
 
-  // Fetch delivery zones when editing
-  const fetchDeliveryZonesForEdit = async (id, page = 1) => {
+  // Fetch delivery zones when editing (fetches all at once - pagination removed)
+  const fetchDeliveryZonesForEdit = async (id) => {
     if (!id) return;
     
     setLoadingZones(true);
     try {
+      // Removed pagination parameters to fetch all zones
       const response = await axios.get(
-        `${API_BASE_URL}/product/delivery-zones/${id}?page=${page}&limit=20`
+        `${API_BASE_URL}/product/delivery-zones/${id}`
       );
       
       if (response.data.success) {
-        const newZones = response.data.data;
-        setTotalZones(response.data.pagination.total);
-        setHasMoreZones(response.data.pagination.page < response.data.pagination.pages);
-        
-        if (page === 1) {
-          setDeliveryZones(newZones);
-          onZonesUpdate?.(newZones);
-        } else {
-          setDeliveryZones(prev => [...prev, ...newZones]);
-          onZonesUpdate?.([...deliveryZones, ...newZones]);
-        }
-        
-        setZonesPage(page);
+        const allZones = response.data.data;
+        setTotalZones(allZones.length);
+        setDeliveryZones(allZones);
+        onZonesUpdate?.(allZones);
       }
     } catch (error) {
       console.error('Error fetching delivery zones:', error);
@@ -87,11 +77,10 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
   // Load zones when productId is provided (editing mode)
   useEffect(() => {
     if (productId && currentZones.length === 0) {
-      fetchDeliveryZonesForEdit(productId, 1);
+      fetchDeliveryZonesForEdit(productId);
     } else if (currentZones.length > 0) {
       setDeliveryZones(currentZones);
       setTotalZones(currentZones.length);
-      setHasMoreZones(false);
     }
   }, [productId]);
 
@@ -127,12 +116,6 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
       console.error('Error fetching cities:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadMoreZones = () => {
-    if (productId && hasMoreZones && !loadingZones) {
-      fetchDeliveryZonesForEdit(productId, zonesPage + 1);
     }
   };
 
@@ -256,7 +239,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
             </h4>
           </div>
           
-          {loadingZones && zonesPage === 1 ? (
+          {loadingZones ? (
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
               <p className="text-sm text-gray-500 mt-2">Loading delivery zones...</p>
@@ -420,25 +403,6 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                   </div>
                 ))}
               </div>
-              
-              {/* Load More Button */}
-              {hasMoreZones && !loadingZones && deliveryZones.length > 0 && (
-                <div className="text-center py-3 mt-2">
-                  <button
-                    onClick={loadMoreZones}
-                    className="text-sm text-orange-500 hover:text-orange-600 font-medium"
-                  >
-                    Load More Cities ({deliveryZones.length} of {totalZones})
-                  </button>
-                </div>
-              )}
-              
-              {loadingZones && zonesPage > 1 && (
-                <div className="text-center py-3">
-                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div>
-                  <p className="text-xs text-gray-500 mt-1">Loading more...</p>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -550,7 +514,9 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
 
       {/* Bulk State Modal - Keep existing code */}
       {showBulkStateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => {
+          if (e.target === e.currentTarget) setShowBulkStateModal(false);
+        }}>
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Add Entire State</h3>
@@ -728,7 +694,9 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
 
       {/* Nationwide Modal - Keep existing code */}
       {showNationwideModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => {
+          if (e.target === e.currentTarget) setShowNationwideModal(false);
+        }}>
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">

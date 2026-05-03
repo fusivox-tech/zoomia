@@ -135,43 +135,19 @@ const initializePaystackPayment = async () => {
     const selectedAddress = addresses.find(addr => addr._id === selectedAddressId);
     const reference = `ZOOMIA_${user._id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
-    // Get seller emails from localStorage
-    const sellerEmails = JSON.parse(localStorage.getItem('sellerEmails') || '[]');
-    
-    const orderItems = validatedItems.map(item => ({
-      productId: item.id,
-      title: item.title,
-      quantity: item.quantity,
-      price: item.validatedPrice || item.price,
-      variant: item.variant,
-      sellerId: item.sellerId,
-      sellerName: item.sellerName,
-      sellerEmail: item.sellerEmail, // Include seller email
-      deliveryPrice: item.perItemShipping || (item.shipping?.cost || 0),
-      totalPrice: item.calculatedSubtotal || (item.price * item.quantity),
-      totalDelivery: item.calculatedShipping || ((item.shipping?.cost || 0) * item.quantity)
-    }));
-    
     const orderData = {
       reference: reference,
       amount: Math.round(checkoutTotals.total * 100),
-      email: user.email,
-      fullName: user.fullName,
-      phone: user.phone,
+      buyerEmail: user.email,
+      buyerFullName: user.fullName,
+      buyerPhone: user.phone,
+      buyerId: user._id,
       deliveryAddress: selectedAddress,
-      items: orderItems,
+      items: validatedItems,
       subtotal: checkoutTotals.subtotal,
       shipping: checkoutTotals.shipping,
       total: checkoutTotals.total,
-      isGuest: false,
       buyerLocation: buyerLocation,
-      sellerEmails: sellerEmails, // Add seller emails to the order data
-      metadata: {
-        userId: user._id,
-        validatedItems: orderItems,
-        deliveryAddress: selectedAddress,
-        sellerEmails: sellerEmails
-      }
     };
 
     const headers = getAuthHeaders ? getAuthHeaders() : {};
