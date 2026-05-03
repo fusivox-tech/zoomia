@@ -378,7 +378,7 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
 };
 
 const ProfilePage = () => {
-  const { user, setUser, logout } = useData();
+  const { user, logout } = useData();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -780,12 +780,6 @@ const saveBankAccount = async () => {
       });
       
       if (response.data.success) {
-        setUser(prev => ({ 
-          ...prev, 
-          fullName: profileForm.fullName,
-          businessName: profileForm.businessName,
-          phone: profileForm.phone
-        }));
         setEditingProfile(false);
         alert('Profile updated successfully!');
       } else {
