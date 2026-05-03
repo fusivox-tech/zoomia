@@ -201,14 +201,14 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
             <p className="text-xs text-gray-500">Total Amount</p>
             <p className="text-xl font-bold text-orange-600">₦{order.total?.toLocaleString() || 0}</p>
           </div>
-          {orderStatus !== 'cancelled' && (
-            <button
-              onClick={() => onUpdateStatus(order)}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
-            >
-              Update Status
-            </button>
-          )}
+{orderStatus !== 'cancelled' && orderStatus !== 'delivered' && (
+  <button
+    onClick={() => onUpdateStatus(order)}
+    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
+  >
+    Update Status
+  </button>
+)}
         </div>
       </div>
       
@@ -725,6 +725,7 @@ const Seller = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [customCategory, setCustomCategory] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [updatingOrderStatus, setUpdatingOrderStatus] = useState(false);
   
   // Order status update
   const [orderStatus, setOrderStatus] = useState('');
@@ -1118,6 +1119,7 @@ const checkCanSell = async () => {
 
   const updateOrderStatus = async (orderId, status, tracking = null) => {
     try {
+      setUpdatingOrderStatus(true)
       const token = getAuthToken();
       const response = await axios.put(`${API_BASE_URL}/orders/${orderId}/status`, {
         status,
@@ -1138,6 +1140,8 @@ const checkCanSell = async () => {
     } catch (error) {
       console.error('Error updating order status:', error);
       setMessage({ type: 'error', text: 'Failed to update order status' });
+    } finally {
+      setUpdatingOrderStatus(false);
     }
   };
 
@@ -1746,10 +1750,10 @@ const checkCanSell = async () => {
         <div className="flex gap-3 mt-6">
           <button
             onClick={() => updateOrderStatus(selectedOrder._id, orderStatus, trackingInfo)}
-            disabled={selectedOrder.status === 'cancelled'}
-            className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={selectedOrder.status === 'cancelled' || updatingOrderStatus}
+            className={`flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed ${selectedOrder.status === 'delivered' ? 'hidden' : ''}`}
           >
-            Update Status
+            {updatingOrderStatus ? 'Updating...' : 'Update Status'}
           </button>
           <button
             onClick={() => {
