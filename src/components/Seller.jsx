@@ -283,10 +283,10 @@ const ProductListingModal = ({
   onSetEditingProduct,
   editingProductId,
   currentZones,
-  categoryInput,
-  setCategoryInput,
   selectedCategories,
-  setSelectedCategories
+  setSelectedCategories,
+  showCategoryDropdown,
+  setShowCategoryDropdown
 }) => {
   if (!show) return null;
 
@@ -388,53 +388,60 @@ const ProductListingModal = ({
     
     {/* Category Dropdown Options */}
     {showCategoryDropdown && (
-      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-        <div className="p-2">
+      <>
+        {/* Click outside to close */}
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setShowCategoryDropdown(false)}
+        />
+        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
           {/* Select All Option */}
-          <label className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer border-b border-gray-100">
-            <input
-              type="checkbox"
-              checked={selectedCategories.length === categories.length}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  const allCategories = [...categories];
-                  setSelectedCategories(allCategories);
-                  onInputChange({ target: { name: 'categories', value: allCategories } });
-                } else {
-                  setSelectedCategories([]);
-                  onInputChange({ target: { name: 'categories', value: [] } });
-                }
-              }}
-              className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-            />
-            <span className="ml-2 text-sm font-medium text-gray-700">Select All Categories</span>
-          </label>
-        </div>
-        
-        {/* Individual Category Options */}
-        <div className="p-2 pt-0">
-          {categories.map(cat => (
-            <label key={cat} className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+            <label className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
               <input
                 type="checkbox"
-                checked={selectedCategories.includes(cat)}
+                checked={selectedCategories.length === categories.length}
                 onChange={(e) => {
-                  let updatedCategories;
                   if (e.target.checked) {
-                    updatedCategories = [...selectedCategories, cat];
+                    const allCategories = [...categories];
+                    setSelectedCategories(allCategories);
+                    onInputChange({ target: { name: 'categories', value: allCategories } });
                   } else {
-                    updatedCategories = selectedCategories.filter(c => c !== cat);
+                    setSelectedCategories([]);
+                    onInputChange({ target: { name: 'categories', value: [] } });
                   }
-                  setSelectedCategories(updatedCategories);
-                  onInputChange({ target: { name: 'categories', value: updatedCategories } });
                 }}
                 className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
               />
-              <span className="ml-2 text-sm text-gray-700">{cat}</span>
+              <span className="ml-2 text-sm font-medium text-gray-700">Select All Categories</span>
             </label>
-          ))}
+          </div>
+          
+          {/* Individual Category Options */}
+          <div className="p-2">
+            {categories.map(cat => (
+              <label key={cat} className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.includes(cat)}
+                  onChange={(e) => {
+                    let updatedCategories;
+                    if (e.target.checked) {
+                      updatedCategories = [...selectedCategories, cat];
+                    } else {
+                      updatedCategories = selectedCategories.filter(c => c !== cat);
+                    }
+                    setSelectedCategories(updatedCategories);
+                    onInputChange({ target: { name: 'categories', value: updatedCategories } });
+                  }}
+                  className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">{cat}</span>
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
+      </>
     )}
   </div>
   
@@ -698,6 +705,8 @@ const Seller = () => {
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('inventory');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   
   const [showListingModal, setShowListingModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -1310,6 +1319,10 @@ const Seller = () => {
           setCategoryInput={setCategoryInput}
           selectedCategories={selectedCategories}
           setSelectedCategories={setSelectedCategories}
+          selectedCategories={selectedCategories}
+  setSelectedCategories={setSelectedCategories}
+  showCategoryDropdown={showCategoryDropdown}
+  setShowCategoryDropdown={setShowCategoryDropdown}
         />
       </>
     );
@@ -1533,6 +1546,10 @@ const Seller = () => {
         setCategoryInput={setCategoryInput}
         selectedCategories={selectedCategories}
         setSelectedCategories={setSelectedCategories}
+        selectedCategories={selectedCategories}
+  setSelectedCategories={setSelectedCategories}
+  showCategoryDropdown={showCategoryDropdown}
+  setShowCategoryDropdown={setShowCategoryDropdown}
       />
 
       {showOrderModal && selectedOrder && (
