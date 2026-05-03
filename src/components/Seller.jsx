@@ -39,7 +39,7 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
         const minutes = Math.floor((remaining % 3600) / 60);
         setTimeLeft({ days, hours, minutes });
       }
-    }, 60000); // Update every minute
+    }, 60000);
     
     return () => clearInterval(timer);
   }, [canCancel, orderCreatedAt]);
@@ -68,7 +68,6 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
   
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
-      {/* Order Header */}
       <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
         <div className="flex justify-between items-center">
           <div>
@@ -86,7 +85,6 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
       </div>
       
       <div className="p-6">
-        {/* Cancelled Order Notice */}
         {orderStatus === 'cancelled' && (
           <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
             <div className="flex items-center gap-2">
@@ -108,7 +106,6 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
           </div>
         )}
         
-        {/* Customer Information */}
         <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
           <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
             <span className="text-orange-500 text-lg font-semibold">
@@ -126,7 +123,6 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
           </div>
         </div>
         
-        {/* Order Items */}
         <div className="mb-4">
           <p className="text-sm font-medium text-gray-700 mb-2">Items Ordered ({order.items?.length || 0})</p>
           <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -144,12 +140,9 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
           </div>
         </div>
         
-        {/* Delivery Address */}
         {order.deliveryAddress && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
-              📍 Delivery Address
-            </p>
+            <p className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">📍 Delivery Address</p>
             <p className="text-xs text-gray-600">
               {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
             </p>
@@ -162,7 +155,6 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
           </div>
         )}
         
-        {/* Tracking Info */}
         {order.trackingInfo && (orderStatus === 'shipped' || orderStatus === 'processing') && (
           <div className="mb-4 p-3 bg-blue-50 rounded-lg">
             <p className="text-xs font-medium text-blue-800 mb-1">📦 Tracking Information</p>
@@ -171,7 +163,6 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
           </div>
         )}
         
-        {/* Seller Cancellation Timer (7 days) */}
         {canCancel && orderStatus !== 'cancelled' && (
           <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
             <div className="flex items-center justify-between gap-4">
@@ -195,39 +186,32 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
           </div>
         )}
         
-        {/* Order Total and Actions */}
         <div className="flex justify-between items-center pt-4 border-t border-gray-100">
           <div>
             <p className="text-xs text-gray-500">Total Amount</p>
             <p className="text-xl font-bold text-orange-600">₦{order.total?.toLocaleString() || 0}</p>
           </div>
-{orderStatus !== 'cancelled' && orderStatus !== 'delivered' && (
-  <button
-    onClick={() => onUpdateStatus(order)}
-    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
-  >
-    Update Status
-  </button>
-)}
+          {orderStatus !== 'cancelled' && orderStatus !== 'delivered' && (
+            <button
+              onClick={() => onUpdateStatus(order)}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
+            >
+              Update Status
+            </button>
+          )}
         </div>
       </div>
       
-      {/* Cancellation Modal for Seller */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full">
             <div className="border-b border-gray-200 px-6 py-4">
               <h2 className="text-xl font-semibold text-gray-900">Cancel Order</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Please tell us why you're cancelling this order (optional)
-              </p>
+              <p className="text-sm text-gray-500 mt-1">Please tell us why you're cancelling this order (optional)</p>
             </div>
-            
             <div className="p-6">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cancellation Reason
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cancellation Reason</label>
                 <textarea
                   value={cancellationReason}
                   onChange={(e) => setCancellationReason(e.target.value)}
@@ -236,15 +220,13 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
                   placeholder="e.g., Out of stock, Customer requested cancellation, Shipping issues, etc."
                 />
               </div>
-              
-<div className="p-3 bg-blue-50 rounded-lg mb-4">
-  <p className="text-xs text-blue-800">
-    <strong>Note:</strong> As a seller, cancelling this order will notify the customer. 
-    <strong>No penalty fee applies</strong> to seller-initiated cancellations. 
-    The customer will receive a <strong>100% full refund</strong>.
-  </p>
-</div>
-              
+              <div className="p-3 bg-blue-50 rounded-lg mb-4">
+                <p className="text-xs text-blue-800">
+                  <strong>Note:</strong> As a seller, cancelling this order will notify the customer. 
+                  <strong>No penalty fee applies</strong> to seller-initiated cancellations. 
+                  The customer will receive a <strong>100% full refund</strong>.
+                </p>
+              </div>
               <div className="flex gap-3">
                 <button
                   onClick={handleCancelOrder}
@@ -271,7 +253,6 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
   );
 };
 
-// Move ProductListingModal outside the main component to prevent re-creation on each render
 const ProductListingModal = ({ 
   show, 
   editingProduct, 
@@ -301,7 +282,11 @@ const ProductListingModal = ({
   onDeliveryZonesUpdate,
   onSetEditingProduct,
   editingProductId,
-  currentZones
+  currentZones,
+  categoryInput,
+  setCategoryInput,
+  selectedCategories,
+  setSelectedCategories
 }) => {
   if (!show) return null;
 
@@ -314,10 +299,7 @@ const ProductListingModal = ({
           <h2 className="text-xl font-semibold text-gray-900">
             {editingProduct ? 'Edit Product' : 'Create New Listing'}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -326,11 +308,8 @@ const ProductListingModal = ({
         
         <div className="p-6">
           <form onSubmit={onSubmit}>
-            {/* Product Title */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Product Title <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Product Title <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="title"
@@ -342,11 +321,8 @@ const ProductListingModal = ({
               />
             </div>
 
-            {/* Description */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-red-500">*</span></label>
               <textarea
                 name="description"
                 value={formData.description}
@@ -358,12 +334,9 @@ const ProductListingModal = ({
               />
             </div>
 
-            {/* Price and Stock */}
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price (NGN) <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (NGN) <span className="text-red-500">*</span></label>
                 <input
                   type="number"
                   name="price"
@@ -377,9 +350,7 @@ const ProductListingModal = ({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stock Quantity
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
                 <input
                   type="number"
                   name="stock"
@@ -392,101 +363,92 @@ const ProductListingModal = ({
               </div>
             </div>
 
-            {/* Category and Condition */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            {/* Categories - Multi-Select */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Categories <span className="text-red-500">*</span>
+              </label>
               
-   {/* Categories - Multi-Select */}
-<div className="mb-4">
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Categories <span className="text-red-500">*</span>
-  </label>
-  
-  {/* Category Search/Select Input */}
-  <div className="relative">
-    <input
-      type="text"
-      value={categoryInput}
-      onChange={(e) => {
-        setCategoryInput(e.target.value);
-        // Optional: Filter categories based on input
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' && categoryInput.trim()) {
-          e.preventDefault();
-          const newCategory = categoryInput.trim();
-          if (!selectedCategories.includes(newCategory)) {
-            const updatedCategories = [...selectedCategories, newCategory];
-            setSelectedCategories(updatedCategories);
-            onInputChange({ 
-              target: { name: 'categories', value: updatedCategories } 
-            });
-          }
-          setCategoryInput('');
-        }
-      }}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-      placeholder="Type category name and press Enter..."
-    />
-  </div>
-  
-  {/* Category Suggestions */}
-  {categoryInput && (
-    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-      {categories
-        .filter(cat => 
-          cat.toLowerCase().includes(categoryInput.toLowerCase()) &&
-          !selectedCategories.includes(cat)
-        )
-        .slice(0, 5)
-        .map(cat => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => {
-              if (!selectedCategories.includes(cat)) {
-                const updatedCategories = [...selectedCategories, cat];
-                setSelectedCategories(updatedCategories);
-                onInputChange({ 
-                  target: { name: 'categories', value: updatedCategories } 
-                });
-              }
-              setCategoryInput('');
-            }}
-            className="w-full text-left px-4 py-2 hover:bg-orange-50 transition"
-          >
-            {cat}
-          </button>
-        ))}
-    </div>
-  )}
-  
-  {/* Selected Categories Tags */}
-  <div className="flex flex-wrap gap-2 mt-2">
-    {selectedCategories.map((cat, index) => (
-      <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
-        {cat}
-        <button
-          type="button"
-          onClick={() => {
-            const updatedCategories = selectedCategories.filter((_, i) => i !== index);
-            setSelectedCategories(updatedCategories);
-            onInputChange({ 
-              target: { name: 'categories', value: updatedCategories } 
-            });
-          }}
-          className="ml-2 text-orange-500 hover:text-orange-700"
-        >
-          ×
-        </button>
-      </span>
-    ))}
-  </div>
-  <p className="text-xs text-gray-500 mt-1">You can add multiple categories for better discoverability</p>
-</div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={categoryInput}
+                  onChange={(e) => setCategoryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && categoryInput.trim()) {
+                      e.preventDefault();
+                      const newCategory = categoryInput.trim();
+                      if (!selectedCategories.includes(newCategory)) {
+                        const updatedCategories = [...selectedCategories, newCategory];
+                        setSelectedCategories(updatedCategories);
+                        onInputChange({ 
+                          target: { name: 'categories', value: updatedCategories } 
+                        });
+                      }
+                      setCategoryInput('');
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  placeholder="Type category name and press Enter..."
+                />
+              </div>
+              
+              {categoryInput && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {categories
+                    .filter(cat => 
+                      cat.toLowerCase().includes(categoryInput.toLowerCase()) &&
+                      !selectedCategories.includes(cat)
+                    )
+                    .slice(0, 5)
+                    .map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          if (!selectedCategories.includes(cat)) {
+                            const updatedCategories = [...selectedCategories, cat];
+                            setSelectedCategories(updatedCategories);
+                            onInputChange({ 
+                              target: { name: 'categories', value: updatedCategories } 
+                            });
+                          }
+                          setCategoryInput('');
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-orange-50 transition"
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                </div>
+              )}
+              
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedCategories.map((cat, index) => (
+                  <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
+                    {cat}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedCategories = selectedCategories.filter((_, i) => i !== index);
+                        setSelectedCategories(updatedCategories);
+                        onInputChange({ 
+                          target: { name: 'categories', value: updatedCategories } 
+                        });
+                      }}
+                      className="ml-2 text-orange-500 hover:text-orange-700"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">You can add multiple categories for better discoverability</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Condition
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
                 <select
                   name="condition"
                   value={formData.condition}
@@ -500,14 +462,8 @@ const ProductListingModal = ({
                   <option value="poor">Poor</option>
                 </select>
               </div>
-            </div>
-
-            {/* Brand and SKU */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Brand
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
                 <input
                   type="text"
                   name="brand"
@@ -517,10 +473,11 @@ const ProductListingModal = ({
                   placeholder="Brand name"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  SKU (Stock Keeping Unit)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">SKU (Stock Keeping Unit)</label>
                 <input
                   type="text"
                   name="sku"
@@ -530,14 +487,8 @@ const ProductListingModal = ({
                   placeholder="Unique product code"
                 />
               </div>
-            </div>
-
-            {/* Weight and Dimensions */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Weight (kg)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
                 <input
                   type="number"
                   name="weight"
@@ -549,45 +500,41 @@ const ProductListingModal = ({
                   placeholder="0.00"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dimensions (L × W × H)
-                </label>
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    name="dimensions.length"
-                    value={formData.dimensions.length}
-                    onChange={onInputChange}
-                    className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder="L"
-                  />
-                  <input
-                    type="text"
-                    name="dimensions.width"
-                    value={formData.dimensions.width}
-                    onChange={onInputChange}
-                    className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder="W"
-                  />
-                  <input
-                    type="text"
-                    name="dimensions.height"
-                    value={formData.dimensions.height}
-                    onChange={onInputChange}
-                    className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder="H"
-                  />
-                </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions (L × W × H)</label>
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  name="dimensions.length"
+                  value={formData.dimensions.length}
+                  onChange={onInputChange}
+                  className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="L"
+                />
+                <input
+                  type="text"
+                  name="dimensions.width"
+                  value={formData.dimensions.width}
+                  onChange={onInputChange}
+                  className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="W"
+                />
+                <input
+                  type="text"
+                  name="dimensions.height"
+                  value={formData.dimensions.height}
+                  onChange={onInputChange}
+                  className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="H"
+                />
               </div>
             </div>
 
-            {/* Current Images (for edit) */}
             {editingProduct && formData.images.length > 0 && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Images
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Current Images</label>
                 <div className="grid grid-cols-3 gap-2">
                   {formData.images.map((img, index) => (
                     <div key={index} className="relative">
@@ -598,7 +545,6 @@ const ProductListingModal = ({
               </div>
             )}
 
-            {/* New Images Upload */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {editingProduct ? 'Add New Images' : 'Product Images'}
@@ -629,11 +575,8 @@ const ProductListingModal = ({
               )}
             </div>
 
-            {/* Tags */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tags
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
               <div className="flex flex-col md:flex-row gap-2 mb-2">
                 <input
                   type="text"
@@ -667,14 +610,12 @@ const ProductListingModal = ({
               </div>
             </div>
             
-            {/* Delivery Zones Component */}
             <SellerDeliveryZones
               productId={editingProductId}
               currentZones={currentZones}
               onZonesUpdate={onDeliveryZonesUpdate}
             />
 
-            {/* Variants */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-md font-medium">Variants (Size, Color, etc.)</h3>
@@ -709,7 +650,6 @@ const ProductListingModal = ({
               )}
             </div>
 
-            {/* Submit Buttons */}
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
@@ -743,39 +683,34 @@ const Seller = () => {
   const [activeTab, setActiveTab] = useState('inventory');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   
-  // Modal states
   const [showListingModal, setShowListingModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   
-  // Form states
   const [editingProduct, setEditingProduct] = useState(null);
-  // Replace the existing categories array and formData
-const [formData, setFormData] = useState({
-  title: '',
-  description: '',
-  price: '',
-  categories: [],
-  stock: '',
-  images: [],
-  condition: 'new',
-  brand: '',
-  sku: '',
-  weight: '',
-  dimensions: {
-    length: '',
-    width: '',
-    height: ''
-  },
-  tags: [],
-  variants: [],
-  deliveryZones: []
-});
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    price: '',
+    categories: [],
+    stock: '',
+    images: [],
+    condition: 'new',
+    brand: '',
+    sku: '',
+    weight: '',
+    dimensions: {
+      length: '',
+      width: '',
+      height: ''
+    },
+    tags: [],
+    variants: [],
+    deliveryZones: []
+  });
 
-// Add state for category input
-const [selectedCategories, setSelectedCategories] = useState([]);
-const [categoryInput, setCategoryInput] = useState('');
-
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [categoryInput, setCategoryInput] = useState('');
   const [newTag, setNewTag] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -790,8 +725,6 @@ const [categoryInput, setCategoryInput] = useState('');
   const [customCategory, setCustomCategory] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
   const [updatingOrderStatus, setUpdatingOrderStatus] = useState(false);
-  
-  // Order status update
   const [orderStatus, setOrderStatus] = useState('');
   const [trackingInfo, setTrackingInfo] = useState({
     trackingNumber: '',
@@ -799,12 +732,8 @@ const [categoryInput, setCategoryInput] = useState('');
     estimatedDelivery: ''
   });
 
-  // Get auth token
-  const getAuthToken = () => {
-    return localStorage.getItem('token');
-  };
+  const getAuthToken = () => localStorage.getItem('token');
 
-  // Setup axios interceptor for auth token
   useEffect(() => {
     const token = getAuthToken();
     if (token) {
@@ -821,77 +750,58 @@ const [categoryInput, setCategoryInput] = useState('');
     setFormData(prev => ({ ...prev, deliveryZones: zones }));
   }, []);
 
-  // Redirect if not logged in
   useEffect(() => {
     const token = getAuthToken();
-    if (!token) {
-      navigate('/login');
-    }
+    if (!token) navigate('/login');
   }, [navigate]);
 
-  // Fetch seller's data when user is available
   useEffect(() => {
     if (user && user._id) {
-      console.log('User loaded, fetching seller data for:', user._id);
       setIsDataLoaded(false);
       setFetchingListings(true);
-      
-      Promise.all([
-        fetchSellerProducts(),
-        fetchSellerOrders()
-      ]).finally(() => {
-        console.log('All data fetched, setting isDataLoaded to true');
+      Promise.all([fetchSellerProducts(), fetchSellerOrders()]).finally(() => {
         setIsDataLoaded(true);
         setFetchingListings(false);
       });
     } else if (user === null) {
-      console.log('Waiting for user to load...');
       setIsDataLoaded(false);
     }
   }, [user]);
   
-const checkCanSell = async () => {
-  try {
-    const token = getAuthToken();
-    const response = await axios.get(`${API_BASE_URL}/user/can-sell`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (response.data.success) {
-      if (!response.data.canSell) {
-        const missingFieldsList = response.data.missingFields.join(', ');
-        
-        // Check if bank account is missing specifically
-        if (response.data.missingFields.includes('Bank Account')) {
-          alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.\n\nBank Account is required to receive payouts for your sales.`);
-        } else {
-          alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.`);
+  const checkCanSell = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await axios.get(`${API_BASE_URL}/user/can-sell`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        if (!response.data.canSell) {
+          const missingFieldsList = response.data.missingFields.join(', ');
+          if (response.data.missingFields.includes('Bank Account')) {
+            alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.\n\nBank Account is required to receive payouts for your sales.`);
+          } else {
+            alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.`);
+          }
+          navigate('/profile');
+          return false;
         }
-        
-        navigate('/profile');
-        return false;
+        return true;
       }
-      return true;
+      return false;
+    } catch (error) {
+      console.error('Error checking seller eligibility:', error);
+      alert('Unable to verify seller information. Please try again.');
+      return false;
     }
-    return false;
-  } catch (error) {
-    console.error('Error checking seller eligibility:', error);
-    alert('Unable to verify seller information. Please try again.');
-    return false;
-  }
-};
+  };
 
   const fetchSellerProducts = async () => {
     setFetchingListings(true);
     try {
       const token = getAuthToken();
-      console.log('Fetching products for seller:', user._id);
       const response = await axios.get(`${API_BASE_URL}/products/seller/${user._id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      console.log('Products response:', response.data);
       if (response.data.success) {
         setProducts(response.data.data || []);
       } else {
@@ -913,9 +823,7 @@ const checkCanSell = async () => {
     try {
       const token = getAuthToken();
       const response = await axios.get(`${API_BASE_URL}/orders/seller/${user._id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.data.success) {
         setOrders(response.data.data || []);
@@ -930,49 +838,34 @@ const checkCanSell = async () => {
 
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
-    
     if (type === 'checkbox') {
       if (name.includes('.')) {
         const [parent, child] = name.split('.');
         setFormData(prev => ({
           ...prev,
-          [parent]: {
-            ...prev[parent],
-            [child]: checked
-          }
+          [parent]: { ...prev[parent], [child]: checked }
         }));
       } else {
-        setFormData(prev => ({
-          ...prev,
-          [name]: checked
-        }));
+        setFormData(prev => ({ ...prev, [name]: checked }));
       }
     } else if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setFormData(prev => ({
         ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
+        [parent]: { ...prev[parent], [child]: value }
       }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   }, []);
 
   const handleImageUpload = useCallback((e) => {
     const files = Array.from(e.target.files);
     const newImages = [...selectedImages, ...files];
-    
     if (newImages.length > 10) {
       setMessage({ type: 'error', text: 'Maximum 10 images allowed' });
       return;
     }
-    
     setSelectedImages(newImages);
     const newPreviews = files.map(file => URL.createObjectURL(file));
     setImagePreviews(prev => [...prev, ...newPreviews]);
@@ -1021,12 +914,8 @@ const checkCanSell = async () => {
 
   const uploadImages = async () => {
     if (selectedImages.length === 0) return [];
-    
     const formDataImg = new FormData();
-    selectedImages.forEach(image => {
-      formDataImg.append('images', image);
-    });
-    
+    selectedImages.forEach(image => formDataImg.append('images', image));
     try {
       const token = getAuthToken();
       const response = await axios.post(`${API_BASE_URL}/upload/product-images`, formDataImg, {
@@ -1042,51 +931,44 @@ const checkCanSell = async () => {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setMessage({ type: '', text: '' });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
 
-  // Validate categories array instead of single category
-  if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
-    setMessage({ type: 'error', text: 'Please fill in all required fields and select at least one category' });
-    setLoading(false);
-    return;
-  }
-
-  try {
-    let uploadedImageUrls = [];
-    if (selectedImages.length > 0) {
-      uploadedImageUrls = await uploadImages();
+    if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
+      setMessage({ type: 'error', text: 'Please fill in all required fields and select at least one category' });
+      setLoading(false);
+      return;
     }
 
-    const productData = {
-      ...formData,
-      sellerId: user._id,
-      sellerName: user.businessName || user.fullName,
-      sellerEmail: user.email,
-      images: [...formData.images, ...uploadedImageUrls],
-      sellerPhone: user.phone,
-      category: formData.categories[0],
-      categories: formData.categories
-    };
+    try {
+      let uploadedImageUrls = [];
+      if (selectedImages.length > 0) {
+        uploadedImageUrls = await uploadImages();
+      }
+
+      const productData = {
+        ...formData,
+        sellerId: user._id,
+        sellerName: user.businessName || user.fullName,
+        sellerEmail: user.email,
+        images: [...formData.images, ...uploadedImageUrls],
+        sellerPhone: user.phone,
+        category: formData.categories[0],
+        categories: formData.categories
+      };
 
       const token = getAuthToken();
       let response;
       
       if (editingProduct) {
         response = await axios.put(`${API_BASE_URL}/products/${editingProduct._id}`, productData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
       } else {
         response = await axios.post(`${API_BASE_URL}/products`, productData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
       }
 
@@ -1111,67 +993,64 @@ const handleSubmit = async (e) => {
   };
 
   const resetForm = useCallback(() => {
-  setFormData({
-    title: '',
-    description: '',
-    price: '',
-    categories: [], // Changed to array
-    stock: '',
-    images: [],
-    condition: 'new',
-    brand: '',
-    sku: '',
-    weight: '',
-    dimensions: { length: '', width: '', height: '' },
-    tags: [],
-    variants: [],
-    deliveryZones: []
-  });
-  setSelectedCategories([]); // Reset selected categories
-  setSelectedImages([]);
-  setImagePreviews(prev => {
-    prev.forEach(url => URL.revokeObjectURL(url));
-    return [];
-  });
-  setNewTag('');
-  setEditingProduct(null);
-  setCategoryInput(''); // Reset category input
-}, []);
+    setFormData({
+      title: '',
+      description: '',
+      price: '',
+      categories: [],
+      stock: '',
+      images: [],
+      condition: 'new',
+      brand: '',
+      sku: '',
+      weight: '',
+      dimensions: { length: '', width: '', height: '' },
+      tags: [],
+      variants: [],
+      deliveryZones: []
+    });
+    setSelectedCategories([]);
+    setSelectedImages([]);
+    setImagePreviews(prev => {
+      prev.forEach(url => URL.revokeObjectURL(url));
+      return [];
+    });
+    setNewTag('');
+    setEditingProduct(null);
+    setCategoryInput('');
+  }, []);
 
-const editProduct = useCallback((product) => {
-  setEditingProduct(product);
-  const productCategories = Array.isArray(product.categories) ? product.categories : [product.category];
-  setSelectedCategories(productCategories);
-  setFormData({
-    title: product.title,
-    description: product.description,
-    price: product.price,
-    categories: productCategories, // Use array
-    stock: product.stock,
-    images: product.images || [],
-    condition: product.condition || 'new',
-    brand: product.brand || '',
-    sku: product.sku || '',
-    weight: product.weight || '',
-    dimensions: product.dimensions || { length: '', width: '', height: '' },
-    tags: product.tags || [],
-    variants: product.variants || [],
-    deliveryZones: product.deliveryZones || []
-  });
-  setSelectedImages([]);
-  setImagePreviews([]);
-  setShowListingModal(true);
-}, []);
+  const editProduct = useCallback((product) => {
+    setEditingProduct(product);
+    const productCategories = Array.isArray(product.categories) ? product.categories : [product.category];
+    setSelectedCategories(productCategories);
+    setFormData({
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      categories: productCategories,
+      stock: product.stock,
+      images: product.images || [],
+      condition: product.condition || 'new',
+      brand: product.brand || '',
+      sku: product.sku || '',
+      weight: product.weight || '',
+      dimensions: product.dimensions || { length: '', width: '', height: '' },
+      tags: product.tags || [],
+      variants: product.variants || [],
+      deliveryZones: product.deliveryZones || []
+    });
+    setSelectedImages([]);
+    setImagePreviews([]);
+    setShowListingModal(true);
+  }, []);
 
   const deleteProduct = async (productId) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
-    
     try {
       const token = getAuthToken();
       const response = await axios.delete(`${API_BASE_URL}/products/${productId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Product deleted successfully!' });
@@ -1186,17 +1065,14 @@ const editProduct = useCallback((product) => {
 
   const updateOrderStatus = async (orderId, status, tracking = null) => {
     try {
-      setUpdatingOrderStatus(true)
+      setUpdatingOrderStatus(true);
       const token = getAuthToken();
       const response = await axios.put(`${API_BASE_URL}/orders/${orderId}/status`, {
         status,
         trackingInfo: tracking
       }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      
       if (response.data.success) {
         setMessage({ type: 'success', text: `Order status updated to ${status}` });
         await fetchSellerOrders();
@@ -1219,32 +1095,24 @@ const editProduct = useCallback((product) => {
   };
 
   const getOrderStatusColor = (status) => {
-    const colors = {
-      pending: 'yellow',
-      processing: 'blue',
-      shipped: 'purple',
-      delivered: 'green',
-      cancelled: 'red'
-    };
+    const colors = { pending: 'yellow', processing: 'blue', shipped: 'purple', delivered: 'green', cancelled: 'red' };
     return colors[status] || 'gray';
   };
 
-  // Close modal handler
   const closeModal = useCallback(() => {
     setShowListingModal(false);
     resetForm();
   }, [resetForm]);
   
   const formatPrice = (price) => {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(price);
-};
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(price);
+  };
 
-  // Show loading state while user data is being fetched
   if (!isDataLoaded || user === undefined) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -1256,34 +1124,26 @@ const editProduct = useCallback((product) => {
     );
   }
 
-  // If user has no products and we're on inventory tab, show the Become a Seller onboarding page
+  // Onboarding screen for sellers with no products
   if (products.length === 0 && activeTab === 'inventory' && !fetchingListings && isDataLoaded) {
     return (
       <>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Hero Section */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-orange-100 rounded-full mb-6">
               <Store className="w-10 h-10 text-orange-500" />
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Become a Seller on Zoomia
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Start earning by selling your products to thousands of customers across Nigeria
-            </p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Become a Seller on Zoomia</h1>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">Start earning by selling your products to thousands of customers across Nigeria</p>
           </div>
 
-          {/* Benefits Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-lg transition">
               <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-4">
                 <Users className="w-6 h-6 text-green-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Reach More Customers</h3>
-              <p className="text-gray-600 text-sm">
-                Connect with thousands of active buyers looking for products like yours
-              </p>
+              <p className="text-gray-600 text-sm">Connect with thousands of active buyers looking for products like yours</p>
             </div>
             
             <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-lg transition">
@@ -1291,9 +1151,7 @@ const editProduct = useCallback((product) => {
                 <Truck className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Easy Delivery Management</h3>
-              <p className="text-gray-600 text-sm">
-                Set your own delivery zones and prices. You control how your products reach customers
-              </p>
+              <p className="text-gray-600 text-sm">Set your own delivery zones and prices. You control how your products reach customers</p>
             </div>
             
             <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-lg transition">
@@ -1301,13 +1159,10 @@ const editProduct = useCallback((product) => {
                 <Shield className="w-6 h-6 text-purple-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Secure Payments</h3>
-              <p className="text-gray-600 text-sm">
-                Get paid securely through our integrated payment system with Paystack
-              </p>
+              <p className="text-gray-600 text-sm">Get paid securely through our integrated payment system with Paystack</p>
             </div>
           </div>
 
-          {/* How It Works Section */}
           <div className="bg-gray-50 rounded-2xl p-8 mb-12">
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">How Selling on Zoomia Works</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1344,7 +1199,6 @@ const editProduct = useCallback((product) => {
             </div>
           </div>
 
-          {/* Platform Fees Section */}
           <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
             <div className="flex items-center gap-3 mb-4">
               <Percent className="w-6 h-6 text-orange-500" />
@@ -1354,28 +1208,20 @@ const editProduct = useCallback((product) => {
               <div className="p-4 bg-orange-50 rounded-lg">
                 <p className="text-2xl font-bold text-orange-900">5% Platform Fee</p>
                 <p className="text-sm text-orange-700 mt-1">Deducted from your earnings</p>
-                <p className="text-xs text-orange-600 mt-2">
-                  When you sell a product for ₦10,000, you receive ₦9,500
-                </p>
+                <p className="text-xs text-orange-600 mt-2">When you sell a product for ₦10,000, you receive ₦9,500</p>
               </div>
             </div>
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>How it works:</strong> When a customer buys your product, you receive the amount minus 5% platform fee. 
-                The buyer pays exactly what you list. No extra charges!
-              </p>
+              <p className="text-sm text-blue-800"><strong>How it works:</strong> When a customer buys your product, you receive the amount minus 5% platform fee. The buyer pays exactly what you list. No extra charges!</p>
             </div>
           </div>
 
-          {/* Delivery Information */}
           <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
             <div className="flex items-center gap-3 mb-4">
               <Truck className="w-6 h-6 text-orange-500" />
               <h2 className="text-xl font-bold text-gray-900">Delivery Management</h2>
             </div>
-            <p className="text-gray-600 mb-4">
-              As a seller on Zoomia, you're in complete control of your delivery process:
-            </p>
+            <p className="text-gray-600 mb-4">As a seller on Zoomia, you're in complete control of your delivery process:</p>
             <ul className="space-y-3">
               <li className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
@@ -1396,7 +1242,6 @@ const editProduct = useCallback((product) => {
             </ul>
           </div>
 
-          {/* Call to Action */}
           <div className="text-center">
             <button
               onClick={async () => {
@@ -1411,13 +1256,10 @@ const editProduct = useCallback((product) => {
               Start Selling Now
               <ArrowRight className="w-5 h-5" />
             </button>
-            <p className="text-sm text-gray-500 mt-4">
-              No commitment required • Cancel anytime • Free to list
-            </p>
+            <p className="text-sm text-gray-500 mt-4">No commitment required • Cancel anytime • Free to list</p>
           </div>
         </div>
 
-        {/* Unified Product Listing Modal */}
         <ProductListingModal
           show={showListingModal}
           editingProduct={editingProduct}
@@ -1448,21 +1290,23 @@ const editProduct = useCallback((product) => {
           onSetEditingProduct={setEditingProduct}
           editingProductId={editingProduct?._id}
           currentZones={formData.deliveryZones}
+          categoryInput={categoryInput}
+          setCategoryInput={setCategoryInput}
+          selectedCategories={selectedCategories}
+          setSelectedCategories={setSelectedCategories}
         />
       </>
     );
   }
 
-  // Rest of the component (Dashboard for sellers with products)
+  // Main dashboard for sellers with products
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-      {/* Header */}
       <div className="mb-4">
         <h1 className="text-3xl font-bold text-gray-900">Seller Dashboard</h1>
         <p className="text-gray-600">Manage your inventory and orders</p>
       </div>
 
-      {/* Message Alert */}
       {message.text && (
         <div className={`mb-6 p-4 rounded-lg ${
           message.type === 'success' ? 'bg-green-100 text-green-700 border border-green-200' : 
@@ -1472,7 +1316,6 @@ const editProduct = useCallback((product) => {
         </div>
       )}
 
-      {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center justify-between">
@@ -1512,15 +1355,12 @@ const editProduct = useCallback((product) => {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex space-x-4">
           <button
             onClick={() => setActiveTab('inventory')}
             className={`pb-4 px-1 font-medium text-sm ${
-              activeTab === 'inventory'
-                ? 'border-b-2 border-orange-500 text-orange-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'inventory' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             Inventory Management
@@ -1528,9 +1368,7 @@ const editProduct = useCallback((product) => {
           <button
             onClick={() => setActiveTab('orders')}
             className={`pb-4 px-1 font-medium text-sm ${
-              activeTab === 'orders'
-                ? 'border-b-2 border-orange-500 text-orange-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'orders' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             Order Management
@@ -1538,7 +1376,6 @@ const editProduct = useCallback((product) => {
         </nav>
       </div>
 
-      {/* Inventory Tab */}
       {activeTab === 'inventory' && (
         <div>
           <div className="flex justify-between items-center mb-6">
@@ -1611,43 +1448,41 @@ const editProduct = useCallback((product) => {
         </div>
       )}
 
-{/* Orders Tab - Card View */}
-{activeTab === 'orders' && (
-  <div>
-    <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Management</h2>
-    {orders.length === 0 ? (
-      <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <Truck className="w-16 h-16 mx-auto mb-3 text-gray-300" />
-        <p className="text-gray-500">No orders yet</p>
-        <p className="text-sm text-gray-400 mt-1">When customers order your products, they'll appear here</p>
-      </div>
-    ) : (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {orders.map((order) => (
-          <SellerOrderCard 
-            key={order._id}
-            order={order}
-            formatPrice={formatPrice}
-            getOrderStatusColor={getOrderStatusColor}
-            onOrderCancelled={fetchSellerOrders}
-            onUpdateStatus={(selectedOrder) => {
-              setSelectedOrder(selectedOrder);
-              setOrderStatus(selectedOrder.status || 'pending');
-              setTrackingInfo({
-                trackingNumber: selectedOrder.trackingInfo?.trackingNumber || '',
-                carrier: selectedOrder.trackingInfo?.carrier || '',
-                estimatedDelivery: selectedOrder.trackingInfo?.estimatedDelivery || ''
-              });
-              setShowOrderModal(true);
-            }}
-          />
-        ))}
-      </div>
-    )}
-  </div>
-)}
+      {activeTab === 'orders' && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Management</h2>
+          {orders.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <Truck className="w-16 h-16 mx-auto mb-3 text-gray-300" />
+              <p className="text-gray-500">No orders yet</p>
+              <p className="text-sm text-gray-400 mt-1">When customers order your products, they'll appear here</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {orders.map((order) => (
+                <SellerOrderCard 
+                  key={order._id}
+                  order={order}
+                  formatPrice={formatPrice}
+                  getOrderStatusColor={getOrderStatusColor}
+                  onOrderCancelled={fetchSellerOrders}
+                  onUpdateStatus={(selectedOrder) => {
+                    setSelectedOrder(selectedOrder);
+                    setOrderStatus(selectedOrder.status || 'pending');
+                    setTrackingInfo({
+                      trackingNumber: selectedOrder.trackingInfo?.trackingNumber || '',
+                      carrier: selectedOrder.trackingInfo?.carrier || '',
+                      estimatedDelivery: selectedOrder.trackingInfo?.estimatedDelivery || ''
+                    });
+                    setShowOrderModal(true);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Unified Product Listing Modal */}
       <ProductListingModal
         show={showListingModal}
         editingProduct={editingProduct}
@@ -1678,189 +1513,154 @@ const editProduct = useCallback((product) => {
         onSetEditingProduct={setEditingProduct}
         editingProductId={editingProduct?._id}
         currentZones={formData.deliveryZones}
+        categoryInput={categoryInput}
+        setCategoryInput={setCategoryInput}
+        selectedCategories={selectedCategories}
+        setSelectedCategories={setSelectedCategories}
       />
 
-{/* Order Status Update Modal */}
-{showOrderModal && selectedOrder && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
-        <h2 className="text-xl font-semibold text-gray-900">Update Order Status</h2>
-        <p className="text-sm text-gray-500 mt-1">Order #{selectedOrder.reference?.slice(-8) || selectedOrder._id.slice(-8)}</p>
-      </div>
-      
-      <div className="p-6">
-        {/* Show warning if order is cancelled */}
-        {selectedOrder.status === 'cancelled' && (
-          <div className="mb-6 p-3 bg-red-50 rounded-lg border border-red-200">
-            <p className="text-sm text-red-700">
-              This order has been cancelled. You cannot update the status of a cancelled order.
-            </p>
-          </div>
-        )}
-        
-        {/* Buyer Information Section */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Buyer Information</h3>
-          <div className="space-y-2">
-            <p className="text-sm">
-              <span className="font-medium text-gray-600">Name:</span>{' '}
-              <span className="text-gray-900">{selectedOrder.buyerFullName || 'Guest'}</span>
-            </p>
-            <p className="text-sm">
-              <span className="font-medium text-gray-600">Email:</span>{' '}
-              <a href={`mailto:${selectedOrder.buyerEmail}`} className="text-orange-500 hover:text-orange-600">
-                {selectedOrder.buyerEmail}
-              </a>
-            </p>
-            {selectedOrder.buyerPhone && (
-              <p className="text-sm">
-                <span className="font-medium text-gray-600">Phone:</span>{' '}
-                <a href={`tel:${selectedOrder.buyerPhone}`} className="text-orange-500 hover:text-orange-600">
-                  {selectedOrder.buyerPhone}
-                </a>
-              </p>
-            )}
-          </div>
-          
-          {selectedOrder.deliveryAddress && (
-            <div className="mt-3 pt-3 border-t border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-1">Delivery Address</p>
-              <p className="text-sm text-gray-600">
-                {selectedOrder.deliveryAddress.street}, {selectedOrder.deliveryAddress.city}, {selectedOrder.deliveryAddress.state}
-              </p>
+      {showOrderModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-900">Update Order Status</h2>
+              <p className="text-sm text-gray-500 mt-1">Order #{selectedOrder.reference?.slice(-8) || selectedOrder._id.slice(-8)}</p>
             </div>
-          )}
-        </div>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Order Status
-          </label>
-          <select
-            value={orderStatus}
-            onChange={(e) => setOrderStatus(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-            disabled={selectedOrder.status === 'cancelled'}
-          >
-            <option value="pending">Pending</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-
-        {orderStatus === 'shipped' && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tracking Number
-              </label>
-              <input
-                type="text"
-                value={trackingInfo.trackingNumber}
-                onChange={(e) => setTrackingInfo(prev => ({ ...prev, trackingNumber: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                placeholder="Enter tracking number"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Carrier
-              </label>
-              <input
-                type="text"
-                value={trackingInfo.carrier}
-                onChange={(e) => setTrackingInfo(prev => ({ ...prev, carrier: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                placeholder="Enter Carrier"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estimated Delivery Date
-              </label>
-              <input
-                type="date"
-                value={trackingInfo.estimatedDelivery}
-                onChange={(e) => setTrackingInfo(prev => ({ ...prev, estimatedDelivery: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-              <p className="text-xs text-center text-gray-600 mt-2">Cannot be longer than 7 days after order was placed.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Order Items Summary */}
-        {selectedOrder.items && selectedOrder.items.length > 0 && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">Order Items</p>
-            <div className="space-y-2">
-              {selectedOrder.items.slice(0, 3).map((item, idx) => (
-                <div key={idx} className="text-sm flex justify-between">
-                  <span className="text-gray-600">{item.quantity}x {item.title}</span>
-                  <span className="text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
+            
+            <div className="p-6">
+              {selectedOrder.status === 'cancelled' && (
+                <div className="mb-6 p-3 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm text-red-700">This order has been cancelled. You cannot update the status of a cancelled order.</p>
                 </div>
-              ))}
-              {selectedOrder.items.length > 3 && (
-                <p className="text-xs text-gray-500">+{selectedOrder.items.length - 3} more items</p>
+              )}
+              
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Buyer Information</h3>
+                <div className="space-y-2">
+                  <p className="text-sm"><span className="font-medium text-gray-600">Name:</span> <span className="text-gray-900">{selectedOrder.buyerFullName || 'Guest'}</span></p>
+                  <p className="text-sm"><span className="font-medium text-gray-600">Email:</span> <a href={`mailto:${selectedOrder.buyerEmail}`} className="text-orange-500 hover:text-orange-600">{selectedOrder.buyerEmail}</a></p>
+                  {selectedOrder.buyerPhone && (
+                    <p className="text-sm"><span className="font-medium text-gray-600">Phone:</span> <a href={`tel:${selectedOrder.buyerPhone}`} className="text-orange-500 hover:text-orange-600">{selectedOrder.buyerPhone}</a></p>
+                  )}
+                </div>
+                {selectedOrder.deliveryAddress && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Delivery Address</p>
+                    <p className="text-sm text-gray-600">{selectedOrder.deliveryAddress.street}, {selectedOrder.deliveryAddress.city}, {selectedOrder.deliveryAddress.state}</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
+                <select
+                  value={orderStatus}
+                  onChange={(e) => setOrderStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  disabled={selectedOrder.status === 'cancelled'}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="processing">Processing</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              {orderStatus === 'shipped' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+                    <input
+                      type="text"
+                      value={trackingInfo.trackingNumber}
+                      onChange={(e) => setTrackingInfo(prev => ({ ...prev, trackingNumber: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="Enter tracking number"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Carrier</label>
+                    <input
+                      type="text"
+                      value={trackingInfo.carrier}
+                      onChange={(e) => setTrackingInfo(prev => ({ ...prev, carrier: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="Enter Carrier"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Delivery Date</label>
+                    <input
+                      type="date"
+                      value={trackingInfo.estimatedDelivery}
+                      onChange={(e) => setTrackingInfo(prev => ({ ...prev, estimatedDelivery: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    <p className="text-xs text-center text-gray-600 mt-2">Cannot be longer than 7 days after order was placed.</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedOrder.items && selectedOrder.items.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Order Items</p>
+                  <div className="space-y-2">
+                    {selectedOrder.items.slice(0, 3).map((item, idx) => (
+                      <div key={idx} className="text-sm flex justify-between">
+                        <span className="text-gray-600">{item.quantity}x {item.title}</span>
+                        <span className="text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {selectedOrder.items.length > 3 && (
+                      <p className="text-xs text-gray-500">+{selectedOrder.items.length - 3} more items</p>
+                    )}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between">
+                    <span className="font-medium text-gray-700">Total</span>
+                    <span className="font-bold text-orange-600">₦{selectedOrder.total?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => updateOrderStatus(selectedOrder._id, orderStatus, trackingInfo)}
+                  disabled={selectedOrder.status === 'cancelled' || updatingOrderStatus}
+                  className={`flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed ${selectedOrder.status === 'delivered' ? 'hidden' : ''}`}
+                >
+                  {updatingOrderStatus ? 'Updating...' : 'Update Status'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowOrderModal(false);
+                    setSelectedOrder(null);
+                    setOrderStatus('');
+                    setTrackingInfo({ trackingNumber: '', carrier: '', estimatedDelivery: '' });
+                  }}
+                  className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+              
+              {selectedOrder.buyerPhone && selectedOrder.status !== 'cancelled' && (
+                <div className="mt-4 text-center">
+                  <a href={`tel:${selectedOrder.buyerPhone}`} className="text-sm text-orange-500 hover:text-orange-600">📞 Call Buyer to Coordinate Delivery</a>
+                </div>
               )}
             </div>
-            <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between">
-              <span className="font-medium text-gray-700">Total</span>
-              <span className="font-bold text-orange-600">₦{selectedOrder.total?.toLocaleString() || 0}</span>
-            </div>
           </div>
-        )}
-
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={() => updateOrderStatus(selectedOrder._id, orderStatus, trackingInfo)}
-            disabled={selectedOrder.status === 'cancelled' || updatingOrderStatus}
-            className={`flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed ${selectedOrder.status === 'delivered' ? 'hidden' : ''}`}
-          >
-            {updatingOrderStatus ? 'Updating...' : 'Update Status'}
-          </button>
-          <button
-            onClick={() => {
-              setShowOrderModal(false);
-              setSelectedOrder(null);
-              setOrderStatus('');
-              setTrackingInfo({ trackingNumber: '', carrier: '', estimatedDelivery: '' });
-            }}
-            className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
-          >
-            Cancel
-          </button>
         </div>
-        
-        {/* Quick Contact Button */}
-        {selectedOrder.buyerPhone && selectedOrder.status !== 'cancelled' && (
-          <div className="mt-4 text-center">
-            <a
-              href={`tel:${selectedOrder.buyerPhone}`}
-              className="text-sm text-orange-500 hover:text-orange-600"
-            >
-              📞 Call Buyer to Coordinate Delivery
-            </a>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
-      {/* Variant Modal */}
       {showVariantModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-xl font-semibold mb-4">Add Product Variant</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Variant Name <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Variant Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={variantForm.name}
@@ -1870,9 +1670,7 @@ const editProduct = useCallback((product) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price <span className="text-red-500">*</span></label>
                 <input
                   type="number"
                   value={variantForm.price}
@@ -1884,9 +1682,7 @@ const editProduct = useCallback((product) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stock
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
                 <input
                   type="number"
                   value={variantForm.stock}
@@ -1897,9 +1693,7 @@ const editProduct = useCallback((product) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  SKU (Optional)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">SKU (Optional)</label>
                 <input
                   type="text"
                   value={variantForm.sku}
@@ -1910,18 +1704,8 @@ const editProduct = useCallback((product) => {
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button
-                onClick={addVariant}
-                className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600"
-              >
-                Add Variant
-              </button>
-              <button
-                onClick={() => setShowVariantModal(false)}
-                className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+              <button onClick={addVariant} className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600">Add Variant</button>
+              <button onClick={() => setShowVariantModal(false)} className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50">Cancel</button>
             </div>
           </div>
         </div>
