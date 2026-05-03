@@ -1047,7 +1047,7 @@ const updateProfile = async () => {
                     <div key={idx} className="flex gap-4">
                       <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
                         <img 
-                          src={item.product?.images?.[0] || item.images?.[0] || '/placeholder.png'} 
+                          src={item.image} 
                           alt={item.title}
                           className="w-full h-full object-cover rounded"
                           onError={(e) => {
