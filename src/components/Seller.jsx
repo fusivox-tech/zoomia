@@ -15,13 +15,11 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
   const orderStatus = order.status || 'pending';
   const orderDate = order.createdAt;
   
-  // Calculate if order is within 7 days for seller cancellation
   const now = new Date();
   const orderCreatedAt = new Date(orderDate);
   const daysSinceOrder = (now - orderCreatedAt) / (1000 * 60 * 60 * 24);
   const canCancel = order.status !== 'delivered' && !order.deliveryDisputed && daysSinceOrder <= 7;
   
-  // Timer effect for seller cancellation (7 days countdown)
   useEffect(() => {
     if (!canCancel) return;
     
@@ -363,111 +361,110 @@ const ProductListingModal = ({
               </div>
             </div>
 
-{/* Categories - Multi-Select with Checkboxes */}
-<div className="mb-4">
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Categories <span className="text-red-500">*</span>
-  </label>
-  
-  {/* Category Dropdown Button */}
-  <div className="relative">
-    <button
-      type="button"
-      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-left flex justify-between items-center bg-white"
-    >
-      <span className={selectedCategories.length === 0 ? "text-gray-400" : "text-gray-700"}>
-        {selectedCategories.length === 0 
-          ? "Select categories..." 
-          : `${selectedCategories.length} category${selectedCategories.length !== 1 ? 'ies' : ''} selected`}
-      </span>
-      <svg className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
-    
-    {/* Category Dropdown Options */}
-    {showCategoryDropdown && (
-      <>
-        {/* Click outside to close */}
-        <div 
-          className="fixed inset-0 z-0" 
-          onClick={() => setShowCategoryDropdown(false)}
-        />
-        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {/* Select All Option */}
-          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
-            <label className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedCategories.length === categories.length}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    const allCategories = [...categories];
-                    setSelectedCategories(allCategories);
-                    onInputChange({ target: { name: 'categories', value: allCategories } });
-                  } else {
-                    setSelectedCategories([]);
-                    onInputChange({ target: { name: 'categories', value: [] } });
-                  }
-                }}
-                className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-              />
-              <span className="ml-2 text-sm font-medium text-gray-700">Select All Categories</span>
-            </label>
-          </div>
-          
-          {/* Individual Category Options */}
-          <div className="p-2">
-            {categories.map(cat => (
-              <label key={cat} className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedCategories.includes(cat)}
-                  onChange={(e) => {
-                    let updatedCategories;
-                    if (e.target.checked) {
-                      updatedCategories = [...selectedCategories, cat];
-                    } else {
-                      updatedCategories = selectedCategories.filter(c => c !== cat);
-                    }
-                    setSelectedCategories(updatedCategories);
-                    onInputChange({ target: { name: 'categories', value: updatedCategories } });
-                  }}
-                  className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">{cat}</span>
+            {/* Categories - Multi-Select with Checkboxes */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Categories <span className="text-red-500">*</span>
               </label>
-            ))}
-          </div>
-        </div>
-      </>
-    )}
-  </div>
-  
-  {/* Selected Categories Tags */}
-  {selectedCategories.length > 0 && (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {selectedCategories.map((cat, index) => (
-        <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
-          {cat}
-          <button
-            type="button"
-            onClick={() => {
-              const updatedCategories = selectedCategories.filter((_, i) => i !== index);
-              setSelectedCategories(updatedCategories);
-              onInputChange({ target: { name: 'categories', value: updatedCategories } });
-            }}
-            className="ml-2 text-orange-500 hover:text-orange-700"
-          >
-            ×
-          </button>
-        </span>
-      ))}
-    </div>
-  )}
-  <p className="text-xs text-gray-500 mt-1">Select one or more categories for your product</p>
-</div>
+              
+              {/* Category Dropdown Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-left flex justify-between items-center bg-white"
+                >
+                  <span className={selectedCategories.length === 0 ? "text-gray-400" : "text-gray-700"}>
+                    {selectedCategories.length === 0 
+                      ? "Select categories..." 
+                      : `${selectedCategories.length} category${selectedCategories.length !== 1 ? 'ies' : ''} selected`}
+                  </span>
+                  <svg className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Category Dropdown Options */}
+                {showCategoryDropdown && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-0" 
+                      onClick={() => setShowCategoryDropdown(false)}
+                    />
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {/* Select All Option */}
+                      <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+                        <label className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.length === categories.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const allCategories = [...categories];
+                                setSelectedCategories(allCategories);
+                                onInputChange({ target: { name: 'categories', value: allCategories } });
+                              } else {
+                                setSelectedCategories([]);
+                                onInputChange({ target: { name: 'categories', value: [] } });
+                              }
+                            }}
+                            className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                          />
+                          <span className="ml-2 text-sm font-medium text-gray-700">Select All Categories</span>
+                        </label>
+                      </div>
+                      
+                      {/* Individual Category Options */}
+                      <div className="p-2">
+                        {categories.map(cat => (
+                          <label key={cat} className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(cat)}
+                              onChange={(e) => {
+                                let updatedCategories;
+                                if (e.target.checked) {
+                                  updatedCategories = [...selectedCategories, cat];
+                                } else {
+                                  updatedCategories = selectedCategories.filter(c => c !== cat);
+                                }
+                                setSelectedCategories(updatedCategories);
+                                onInputChange({ target: { name: 'categories', value: updatedCategories } });
+                              }}
+                              className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">{cat}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              {/* Selected Categories Tags */}
+              {selectedCategories.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedCategories.map((cat, index) => (
+                    <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
+                      {cat}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updatedCategories = selectedCategories.filter((_, i) => i !== index);
+                          setSelectedCategories(updatedCategories);
+                          onInputChange({ target: { name: 'categories', value: updatedCategories } });
+                        }}
+                        className="ml-2 text-orange-500 hover:text-orange-700"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">Select one or more categories for your product</p>
+            </div>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -705,8 +702,6 @@ const Seller = () => {
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('inventory');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   
   const [showListingModal, setShowListingModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -735,7 +730,7 @@ const Seller = () => {
   });
 
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [categoryInput, setCategoryInput] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -1042,7 +1037,7 @@ const Seller = () => {
     });
     setNewTag('');
     setEditingProduct(null);
-    setCategoryInput('');
+    setShowCategoryDropdown(false);
   }, []);
 
   const editProduct = useCallback((product) => {
@@ -1315,14 +1310,10 @@ const Seller = () => {
           onSetEditingProduct={setEditingProduct}
           editingProductId={editingProduct?._id}
           currentZones={formData.deliveryZones}
-          categoryInput={categoryInput}
-          setCategoryInput={setCategoryInput}
           selectedCategories={selectedCategories}
           setSelectedCategories={setSelectedCategories}
-          selectedCategories={selectedCategories}
-  setSelectedCategories={setSelectedCategories}
-  showCategoryDropdown={showCategoryDropdown}
-  setShowCategoryDropdown={setShowCategoryDropdown}
+          showCategoryDropdown={showCategoryDropdown}
+          setShowCategoryDropdown={setShowCategoryDropdown}
         />
       </>
     );
@@ -1542,14 +1533,10 @@ const Seller = () => {
         onSetEditingProduct={setEditingProduct}
         editingProductId={editingProduct?._id}
         currentZones={formData.deliveryZones}
-        categoryInput={categoryInput}
-        setCategoryInput={setCategoryInput}
         selectedCategories={selectedCategories}
         setSelectedCategories={setSelectedCategories}
-        selectedCategories={selectedCategories}
-  setSelectedCategories={setSelectedCategories}
-  showCategoryDropdown={showCategoryDropdown}
-  setShowCategoryDropdown={setShowCategoryDropdown}
+        showCategoryDropdown={showCategoryDropdown}
+        setShowCategoryDropdown={setShowCategoryDropdown}
       />
 
       {showOrderModal && selectedOrder && (
