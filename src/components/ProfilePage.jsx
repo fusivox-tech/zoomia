@@ -1044,7 +1044,7 @@ const [loadingPayouts, setLoadingPayouts] = useState(false);
 
       {/* Profile Info Tab */}
       {activeTab === 'profile' && (
-        <div className="bg-white overflow-hidden border border-gray-200 rounded-lg p-6 max-w-2xl">
+        <div className="bg-white overflow-hidden border border-gray-200 mx-auto rounded-lg p-6 max-w-2xl">
           {/* Personal Information Section */}
           {editingProfile ? (
             <div className="space-y-4">
