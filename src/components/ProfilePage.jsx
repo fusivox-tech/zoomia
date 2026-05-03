@@ -139,72 +139,56 @@ const ProfilePage = () => {
     }
   };
 
-  // Unified save/update bank account using the same endpoint
-  const saveBankAccount = async () => {
-    if (!verifiedAccount) return;
+// Unified save/update bank account using the same endpoint
+const saveBankAccount = async () => {
+  if (!verifiedAccount) return;
+  
+  setVerifyingBank(true);
+  
+  try {
+    const token = localStorage.getItem('token');
+    // Using the unified POST endpoint for both create and update
+    const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
+      accountNumber: verifiedAccount.accountNumber,
+      bankCode: verifiedAccount.bankCode,
+      accountName: verifiedAccount.accountName
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
     
-    setVerifyingBank(true);
-    
-    try {
-      const token = localStorage.getItem('token');
-      // Using the unified POST endpoint for both create and update
-      const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
-        accountNumber: verifiedAccount.accountNumber,
-        bankCode: verifiedAccount.bankCode,
-        accountName: verifiedAccount.accountName
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+    if (response.data.success) {
+      const message = response.data.message || 'Bank account saved successfully';
+      alert(message);
       
-      if (response.data.success) {
-        const bank = banks.find(b => b.code === response.data.data.bankCode);
-        const newBankAccount = {
-          ...response.data.data,
-          bankName: bank?.name
-        };
-        setBankAccount(newBankAccount);
-        // Update user context with new bank account
-        setUser(prev => ({ ...prev, bankAccount: newBankAccount }));
-        setShowBankForm(false);
-        setShowConfirmation(false);
-        setBankForm({ accountNumber: '', bankCode: '', bankName: '' });
-        setSelectedBank('');
-        setVerifiedAccount(null);
-        
-        const message = response.data.message || 'Bank account saved successfully';
-        alert(message);
-      }
-    } catch (error) {
-      setBankError(error.response?.data?.message || 'Failed to save bank account');
-    } finally {
-      setVerifyingBank(false);
+      // Reload the page to fetch fresh user data
+      window.location.reload();
     }
-  };
+  } catch (error) {
+    setBankError(error.response?.data?.message || 'Failed to save bank account');
+    setVerifyingBank(false);
+  }
+};
 
-  // Remove bank account
-  const removeBankAccount = async () => {
-    if (!window.confirm('Are you sure you want to remove your bank account?')) return;
+// Remove bank account
+const removeBankAccount = async () => {
+  if (!window.confirm('Are you sure you want to remove your bank account?')) return;
+  
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.delete(`${API_BASE_URL}/user/bank-account`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
     
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.delete(`${API_BASE_URL}/user/bank-account`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        setBankAccount(null);
-        // Update user context to remove bank account
-        setUser(prev => {
-          const { bankAccount, ...rest } = prev;
-          return rest;
-        });
-        alert('Bank account removed successfully!');
-      }
-    } catch (error) {
-      console.error('Error removing bank account:', error);
-      alert('Failed to remove bank account');
+    if (response.data.success) {
+      alert('Bank account removed successfully!');
+      // Reload the page to fetch fresh user data
+      window.location.reload();
     }
-  };
+  } catch (error) {
+    console.error('Error removing bank account:', error);
+    alert('Failed to remove bank account');
+  }
+};
 
   // Redirect if not logged in
   useEffect(() => {
