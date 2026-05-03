@@ -394,36 +394,95 @@ const ProductListingModal = ({
 
             {/* Category and Condition */}
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={selectedCategory || formData.category}
-                  onChange={(e) => {
-                    onSetSelectedCategory(e.target.value);
-                    onInputChange({ target: { name: 'category', value: e.target.value } });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="">Select category</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                {selectedCategory === 'Other' && (
-                  <input
-                    type="text"
-                    value={customCategory}
-                    onChange={(e) => {
-                      onSetCustomCategory(e.target.value);
-                      onInputChange({ target: { name: 'category', value: e.target.value } });
-                    }}
-                    placeholder="Enter custom category"
-                    className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                )}
-              </div>
+              
+   {/* Categories - Multi-Select */}
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Categories <span className="text-red-500">*</span>
+  </label>
+  
+  {/* Category Search/Select Input */}
+  <div className="relative">
+    <input
+      type="text"
+      value={categoryInput}
+      onChange={(e) => {
+        setCategoryInput(e.target.value);
+        // Optional: Filter categories based on input
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && categoryInput.trim()) {
+          e.preventDefault();
+          const newCategory = categoryInput.trim();
+          if (!selectedCategories.includes(newCategory)) {
+            const updatedCategories = [...selectedCategories, newCategory];
+            setSelectedCategories(updatedCategories);
+            onInputChange({ 
+              target: { name: 'categories', value: updatedCategories } 
+            });
+          }
+          setCategoryInput('');
+        }
+      }}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+      placeholder="Type category name and press Enter..."
+    />
+  </div>
+  
+  {/* Category Suggestions */}
+  {categoryInput && (
+    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+      {categories
+        .filter(cat => 
+          cat.toLowerCase().includes(categoryInput.toLowerCase()) &&
+          !selectedCategories.includes(cat)
+        )
+        .slice(0, 5)
+        .map(cat => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => {
+              if (!selectedCategories.includes(cat)) {
+                const updatedCategories = [...selectedCategories, cat];
+                setSelectedCategories(updatedCategories);
+                onInputChange({ 
+                  target: { name: 'categories', value: updatedCategories } 
+                });
+              }
+              setCategoryInput('');
+            }}
+            className="w-full text-left px-4 py-2 hover:bg-orange-50 transition"
+          >
+            {cat}
+          </button>
+        ))}
+    </div>
+  )}
+  
+  {/* Selected Categories Tags */}
+  <div className="flex flex-wrap gap-2 mt-2">
+    {selectedCategories.map((cat, index) => (
+      <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
+        {cat}
+        <button
+          type="button"
+          onClick={() => {
+            const updatedCategories = selectedCategories.filter((_, i) => i !== index);
+            setSelectedCategories(updatedCategories);
+            onInputChange({ 
+              target: { name: 'categories', value: updatedCategories } 
+            });
+          }}
+          className="ml-2 text-orange-500 hover:text-orange-700"
+        >
+          ×
+        </button>
+      </span>
+    ))}
+  </div>
+  <p className="text-xs text-gray-500 mt-1">You can add multiple categories for better discoverability</p>
+</div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Condition
@@ -691,26 +750,31 @@ const Seller = () => {
   
   // Form states
   const [editingProduct, setEditingProduct] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    price: '',
-    category: '',
-    stock: '',
-    images: [],
-    condition: 'new',
-    brand: '',
-    sku: '',
-    weight: '',
-    dimensions: {
-      length: '',
-      width: '',
-      height: ''
-    },
-    tags: [],
-    variants: [],
-    deliveryZones: []
-  });
+  // Replace the existing categories array and formData
+const [formData, setFormData] = useState({
+  title: '',
+  description: '',
+  price: '',
+  categories: [],
+  stock: '',
+  images: [],
+  condition: 'new',
+  brand: '',
+  sku: '',
+  weight: '',
+  dimensions: {
+    length: '',
+    width: '',
+    height: ''
+  },
+  tags: [],
+  variants: [],
+  deliveryZones: []
+});
+
+// Add state for category input
+const [selectedCategories, setSelectedCategories] = useState([]);
+const [categoryInput, setCategoryInput] = useState('');
 
   const [newTag, setNewTag] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
@@ -978,31 +1042,34 @@ const checkCanSell = async () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage({ type: '', text: '' });
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setMessage({ type: '', text: '' });
 
-    if (!formData.title || !formData.description || !formData.price || !formData.category) {
-      setMessage({ type: 'error', text: 'Please fill in all required fields' });
-      setLoading(false);
-      return;
+  // Validate categories array instead of single category
+  if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
+    setMessage({ type: 'error', text: 'Please fill in all required fields and select at least one category' });
+    setLoading(false);
+    return;
+  }
+
+  try {
+    let uploadedImageUrls = [];
+    if (selectedImages.length > 0) {
+      uploadedImageUrls = await uploadImages();
     }
 
-    try {
-      let uploadedImageUrls = [];
-      if (selectedImages.length > 0) {
-        uploadedImageUrls = await uploadImages();
-      }
-
-      const productData = {
-        ...formData,
-        sellerId: user._id,
-        sellerName: user.businessName || user.fullName,
-        sellerEmail: user.email,
-        images: [...formData.images, ...uploadedImageUrls],
-        sellerPhone: user.phone
-      };
+    const productData = {
+      ...formData,
+      sellerId: user._id,
+      sellerName: user.businessName || user.fullName,
+      sellerEmail: user.email,
+      images: [...formData.images, ...uploadedImageUrls],
+      sellerPhone: user.phone,
+      category: formData.categories[0],
+      categories: formData.categories
+    };
 
       const token = getAuthToken();
       let response;
@@ -1044,57 +1111,57 @@ const checkCanSell = async () => {
   };
 
   const resetForm = useCallback(() => {
-    setFormData({
-      title: '',
-      description: '',
-      price: '',
-      category: '',
-      stock: '',
-      images: [],
-      condition: 'new',
-      brand: '',
-      sku: '',
-      weight: '',
-      dimensions: { length: '', width: '', height: '' },
-      tags: [],
-      variants: [],
-      deliveryZones: []
-    });
-    setSelectedImages([]);
-    setImagePreviews(prev => {
-      prev.forEach(url => URL.revokeObjectURL(url));
-      return [];
-    });
-    setNewTag('');
-    setEditingProduct(null);
-    setSelectedCategory('');
-    setCustomCategory('');
-  }, []);
+  setFormData({
+    title: '',
+    description: '',
+    price: '',
+    categories: [], // Changed to array
+    stock: '',
+    images: [],
+    condition: 'new',
+    brand: '',
+    sku: '',
+    weight: '',
+    dimensions: { length: '', width: '', height: '' },
+    tags: [],
+    variants: [],
+    deliveryZones: []
+  });
+  setSelectedCategories([]); // Reset selected categories
+  setSelectedImages([]);
+  setImagePreviews(prev => {
+    prev.forEach(url => URL.revokeObjectURL(url));
+    return [];
+  });
+  setNewTag('');
+  setEditingProduct(null);
+  setCategoryInput(''); // Reset category input
+}, []);
 
-  const editProduct = useCallback((product) => {
-    setEditingProduct(product);
-    setFormData({
-      title: product.title,
-      description: product.description,
-      price: product.price,
-      category: product.category,
-      stock: product.stock,
-      images: product.images || [],
-      condition: product.condition || 'new',
-      brand: product.brand || '',
-      sku: product.sku || '',
-      weight: product.weight || '',
-      dimensions: product.dimensions || { length: '', width: '', height: '' },
-      tags: product.tags || [],
-      variants: product.variants || [],
-      deliveryZones: product.deliveryZones || []
-    });
-    setSelectedCategory(product.category === 'Other' ? 'Other' : product.category);
-    setCustomCategory(product.category === 'Other' ? product.category : '');
-    setSelectedImages([]);
-    setImagePreviews([]);
-    setShowListingModal(true);
-  }, []);
+const editProduct = useCallback((product) => {
+  setEditingProduct(product);
+  const productCategories = Array.isArray(product.categories) ? product.categories : [product.category];
+  setSelectedCategories(productCategories);
+  setFormData({
+    title: product.title,
+    description: product.description,
+    price: product.price,
+    categories: productCategories, // Use array
+    stock: product.stock,
+    images: product.images || [],
+    condition: product.condition || 'new',
+    brand: product.brand || '',
+    sku: product.sku || '',
+    weight: product.weight || '',
+    dimensions: product.dimensions || { length: '', width: '', height: '' },
+    tags: product.tags || [],
+    variants: product.variants || [],
+    deliveryZones: product.deliveryZones || []
+  });
+  setSelectedImages([]);
+  setImagePreviews([]);
+  setShowListingModal(true);
+}, []);
 
   const deleteProduct = async (productId) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
