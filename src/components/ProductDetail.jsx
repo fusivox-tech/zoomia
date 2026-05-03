@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 import { useData } from '../contexts/DataContext';
-import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
+import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp, MapPin, Package } from 'lucide-react';
 
 // Skeleton Loader Components
 const ImageSkeleton = () => (
@@ -447,7 +447,14 @@ const ProductDetail = () => {
                 <RotateCcw className="w-5 h-5 text-gray-500" />
                 <div>
                   <p className="text-sm font-medium">Returns</p>
-                  <p className="text-xs text-gray-500">7-day return policy</p>
+                  <p className="text-xs text-gray-500">24 hours return policy</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Package className="w-5 h-5 text-gray-500" />
+                <div>
+                  <p className="text-sm font-medium">Arrival</p>
+                  <p className="text-xs text-gray-500">Within 7 days</p>
                 </div>
               </div>
             </div>

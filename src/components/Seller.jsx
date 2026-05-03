@@ -520,28 +520,36 @@ const Seller = () => {
     }
   }, [user]);
   
-  const checkCanSell = async () => {
-    try {
-      const token = getAuthToken();
-      const response = await axios.get(`${API_BASE_URL}/user/can-sell`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        if (!response.data.canSell) {
-          alert(`Please add your ${response.data.missingFields.join(', ')} in your profile before creating a product listing.`);
-          navigate('/profile');
-          return false;
+const checkCanSell = async () => {
+  try {
+    const token = getAuthToken();
+    const response = await axios.get(`${API_BASE_URL}/user/can-sell`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (response.data.success) {
+      if (!response.data.canSell) {
+        const missingFieldsList = response.data.missingFields.join(', ');
+        
+        // Check if bank account is missing specifically
+        if (response.data.missingFields.includes('Bank Account')) {
+          alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.\n\nBank Account is required to receive payouts for your sales.`);
+        } else {
+          alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.`);
         }
-        return true;
+        
+        navigate('/profile');
+        return false;
       }
-      return false;
-    } catch (error) {
-      console.error('Error checking seller eligibility:', error);
-      alert('Unable to verify seller information. Please try again.');
-      return false;
+      return true;
     }
-  };
+    return false;
+  } catch (error) {
+    console.error('Error checking seller eligibility:', error);
+    alert('Unable to verify seller information. Please try again.');
+    return false;
+  }
+};
 
   const fetchSellerProducts = async () => {
     setFetchingListings(true);
@@ -1494,7 +1502,7 @@ const Seller = () => {
                       value={trackingInfo.carrier}
                       onChange={(e) => setTrackingInfo(prev => ({ ...prev, carrier: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      placeholder="e.g., UPS, FedEx, DHL"
+                      placeholder="Enter Carrier"
                     />
                   </div>
                   <div>
@@ -1507,6 +1515,7 @@ const Seller = () => {
                       onChange={(e) => setTrackingInfo(prev => ({ ...prev, estimatedDelivery: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
+                    <p className="text-xs text-center text-gray-600 mt-2">Cannot be longer than 7 days after order was placed.</p>
                   </div>
                 </div>
               )}

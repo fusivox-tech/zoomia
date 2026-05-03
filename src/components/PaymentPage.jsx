@@ -1,7 +1,7 @@
 // PaymentPage.jsx - Use pre-calculated values from CartPage
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, ArrowLeft, Loader, AlertCircle, MapPin, User, Phone, Truck, ShoppingBag } from 'lucide-react';
+import { CreditCard, ArrowLeft, Loader, AlertCircle, MapPin, User, Phone, Truck, ShoppingBag, Banknote, Clock, Calendar, RotateCcw, Info, AlertTriangle } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import axios from 'axios';
 import API_BASE_URL from '../config';
@@ -11,6 +11,7 @@ const PaymentPage = () => {
   const [processing, setProcessing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showProfileWarning, setShowProfileWarning] = useState(false);
+  const [showPolicies, setShowPolicies] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [loadingAddresses, setLoadingAddresses] = useState(true);
@@ -55,8 +56,8 @@ useEffect(() => {
     return;
   }
   
-  const savedCity = localStorage.getItem('buyerCity');
-  const savedState = localStorage.getItem('buyerState');
+  const savedCity = localStorage.getItem('buyerState');
+  const savedState = localStorage.getItem('buyerCity');
   if (savedCity && savedState) {
     setBuyerLocation({ city: savedCity, state: savedState });
   }
@@ -65,43 +66,41 @@ useEffect(() => {
   setValidatingItems(false);
 }, [navigate, user]);
 
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      const addressesResponse = await axios.get(`${API_BASE_URL}/user/addresses`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (addressesResponse.data.success) {
-        setAddresses(addressesResponse.data.data);
-        const defaultAddress = addressesResponse.data.data.find(addr => addr.isDefault);
-        if (defaultAddress) {
-          setSelectedAddressId(defaultAddress._id);
-        } else if (addressesResponse.data.data.length > 0) {
-          setSelectedAddressId(addressesResponse.data.data[0]._id);
-        }
+// Update the fetchUserData function
+const fetchUserData = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    const addressesResponse = await axios.get(`${API_BASE_URL}/user/addresses`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (addressesResponse.data.success) {
+      setAddresses(addressesResponse.data.data);
+      const defaultAddress = addressesResponse.data.data.find(addr => addr.isDefault);
+      if (defaultAddress) {
+        setSelectedAddressId(defaultAddress._id);
+      } else if (addressesResponse.data.data.length > 0) {
+        setSelectedAddressId(addressesResponse.data.data[0]._id);
       }
-      
-      const profileResponse = await axios.get(`${API_BASE_URL}/user/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (profileResponse.data.success) {
-        const userData = profileResponse.data.data;
-        const missing = [];
-        if (!userData.phone || userData.phone.trim() === '') {
-          missing.push('Phone Number');
-        }
-        setMissingFields(missing);
-        setProfileComplete(missing.length === 0 && addressesResponse.data.data.length > 0);
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    } finally {
-      setLoadingAddresses(false);
     }
-  };
+    
+    // Use the can-checkout endpoint
+    const checkoutResponse = await axios.get(`${API_BASE_URL}/user/can-checkout`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (checkoutResponse.data.success) {
+      const checkoutStatus = checkoutResponse.data;
+      setMissingFields(checkoutStatus.missingFields);
+      setProfileComplete(checkoutStatus.canCheckout);
+    }
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+  } finally {
+    setLoadingAddresses(false);
+  }
+};
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-NG', {
@@ -214,6 +213,7 @@ const initializePaystackPayment = async () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
+            {/* Delivery Address Section */}
             <div className="border bg-white border-gray-200 p-6 mb-6">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-orange-500" /> Delivery Address
@@ -248,7 +248,8 @@ const initializePaystackPayment = async () => {
               )}
             </div>
             
-            <div className="border bg-white border-gray-200 p-6">
+            {/* Order Summary Section */}
+            <div className="border bg-white border-gray-200 p-6 mb-6">
               <h2 className="text-xl font-bold mb-4">Order Summary</h2>
               <div className="max-h-64 overflow-y-auto mb-4 space-y-3">
                 {validatedItems.map((item, index) => (
@@ -274,27 +275,185 @@ const initializePaystackPayment = async () => {
                 <span>Total</span><span className="text-orange-600">{formatPrice(checkoutTotals.total)}</span>
               </div>
             </div>
+
+            {/* Policies Information Section */}
+            <div className="border bg-white border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowPolicies(!showPolicies)}
+                className="w-full px-6 py-4 flex justify-between items-center hover:bg-gray-50 transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Info className="w-5 h-5 text-orange-500" />
+                  <h2 className="text-lg font-semibold text-gray-900">Order & Delivery Policies</h2>
+                </div>
+                <svg className={`w-5 h-5 text-gray-500 transition-transform ${showPolicies ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showPolicies && (
+                <div className="px-6 pb-6 space-y-4 border-t border-gray-100 pt-4">
+                  {/* Cancellation Policy */}
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-red-800 mb-1">Order Cancellation Policy</h3>
+                        <p className="text-sm text-red-700">
+                          You have <strong className="font-bold">24 hours</strong> after payment confirmation to cancel your order. 
+                          After 24 hours, orders cannot be cancelled.
+                        </p>
+                        <p className="text-xs text-red-600 mt-1">
+                          <strong>5% penalty fee</strong> applies to all order cancellations.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Delivery Timeline */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Clock className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-blue-800 mb-1">Shipping Starts</h3>
+                          <p className="text-sm text-blue-700">
+                            Shipping begins <strong className="font-bold">24 hours</strong> after order confirmation.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-blue-800 mb-1">Delivery Timeline</h3>
+                          <p className="text-sm text-blue-700">
+                            Delivery completed within <strong className="font-bold">7 days</strong> after shipping starts.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Return & Refund Policy */}
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <RotateCcw className="w-4 h-4 text-yellow-700" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-yellow-800 mb-1">Return & Refund Policy</h3>
+                        <p className="text-sm text-yellow-700">
+                          You have <strong className="font-bold">24 hours after delivery</strong> to request a return and get refunded.
+                        </p>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          <strong>5% penalty fee</strong> applies to all refund processing.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Seller Note */}
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Phone className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-green-800 mb-1">Contact Seller</h3>
+                        <p className="text-sm text-green-700">
+                          After payment, you'll receive seller contact information. 
+                          Contact them directly to finalize delivery arrangements.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Note */}
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-600 text-center">
+                      By proceeding with payment, you agree to all the policies above.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
+          {/* Payment Sidebar */}
           <div className="lg:col-span-1">
             <div className="border bg-white border-gray-200 p-6 sticky top-20">
-              <div className="flex items-center gap-2 mb-4"><CreditCard className="w-5 h-5 text-orange-500" /><h2 className="text-xl font-bold">Payment Method</h2></div>
+              <div className="flex items-center gap-2 mb-4">
+                <CreditCard className="w-5 h-5 text-orange-500" />
+                <h2 className="text-xl font-bold">Payment Method</h2>
+              </div>
+              
               <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-2">Secure payment powered by Paystack</p>
                 <p className="text-xs text-gray-500">Supported: All cards, Bank Transfers, USSD, Mobile Money</p>
               </div>
+              
               <div className="mb-4 p-3 bg-orange-50 rounded-lg">
                 <div className="flex items-center gap-2 text-sm text-orange-700 mb-1">
-                  <Truck className="w-4 h-4" /><span className="font-medium">Delivery to: {buyerLocation.city || 'Not selected'}</span>
+                  <Truck className="w-4 h-4" />
+                  <span className="font-medium">Delivery to: {buyerLocation.city || 'Not selected'}</span>
                 </div>
                 {!buyerLocation.city && <p className="text-xs text-orange-600 mt-1">Please set your delivery location first</p>}
               </div>
-              <button onClick={initializePaystackPayment} disabled={processing || addresses.length === 0 || !buyerLocation.city}
-                className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+
+              {/* Estimated Timeline Summary */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg text-xs text-gray-600 space-y-1">
+                <p className="font-medium text-gray-700 mb-1">Estimated Timeline:</p>
+                <div className="flex justify-between">
+                  <span>Order confirmation:</span>
+                  <span>Immediate</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cancellation window:</span>
+                  <span>24 hours</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Shipping starts:</span>
+                  <span>After 24 hours</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Delivery:</span>
+                  <span>7 days after shipping</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Return window:</span>
+                  <span>24 hours after delivery</span>
+                </div>
+              </div>
+              
+              <button 
+                onClick={initializePaystackPayment} 
+                disabled={processing || addresses.length === 0 || !buyerLocation.city}
+                className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
                 {processing ? <><Loader className="w-5 h-5 animate-spin" />Processing...</> : `Pay ${formatPrice(checkoutTotals.total)}`}
               </button>
-              {addresses.length === 0 && <p className="text-xs text-center mt-4 text-red-500">Please add a delivery address to continue</p>}
-              {!buyerLocation.city && <p className="text-xs text-center mt-4 text-orange-500">Please set your delivery location first</p>}
+              
+              {addresses.length === 0 && (
+                <p className="text-xs text-center mt-4 text-red-500">Please add a delivery address to continue</p>
+              )}
+              {!buyerLocation.city && (
+                <p className="text-xs text-center mt-4 text-orange-500">Please set your delivery location first</p>
+              )}
+              
+              {/* Penalty Note */}
+              <p className="text-xs text-gray-400 text-center mt-4">
+                <AlertCircle className="w-3 h-3 inline mr-1" />
+                5% penalty fee applies to cancellations and refunds
+              </p>
             </div>
           </div>
         </div>
@@ -303,12 +462,19 @@ const initializePaystackPayment = async () => {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 text-center">
-            <div className="mb-4 flex justify-center"><div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-            </div></div>
+            <div className="mb-4 flex justify-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
             <h3 className="text-xl font-bold mb-2">Payment Initialized</h3>
             <p className="text-gray-600 mb-6">You will be redirected to Paystack to complete your payment.</p>
-            <div className="flex justify-center items-center gap-2"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div><span className="text-gray-600">Redirecting...</span></div>
+            <div className="flex justify-center items-center gap-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div>
+              <span className="text-gray-600">Redirecting...</span>
+            </div>
           </div>
         </div>
       )}
@@ -316,18 +482,32 @@ const initializePaystackPayment = async () => {
       {showProfileWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-8 h-8 text-orange-500" /></div>
+            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-orange-500" />
+            </div>
             <h3 className="text-xl font-bold text-center mb-2">Profile Incomplete</h3>
             <p className="text-gray-600 text-center mb-4">Please complete your profile information before making a payment.</p>
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
               <p className="font-semibold text-gray-700 mb-2">Missing Information:</p>
               <ul className="space-y-1">
-                {missingFields.map((field, index) => (<li key={index} className="text-sm text-gray-600 flex items-center gap-2"><User className="w-4 h-4" />{field}</li>))}
-                {addresses.length === 0 && (<li className="text-sm text-gray-600 flex items-center gap-2"><MapPin className="w-4 h-4" />Delivery Address</li>)}
+                {missingFields.map((field, index) => (
+                  <li key={index} className="text-sm text-gray-600 flex items-center gap-2">
+                    {field.includes('Bank') ? <Banknote className="w-4 h-4" /> : 
+                     field.includes('Phone') ? <Phone className="w-4 h-4" /> : 
+                     <MapPin className="w-4 h-4" />}
+                    {field}
+                  </li>
+                ))}
               </ul>
             </div>
-            <div className="flex gap-3"><button onClick={() => navigate('/profile')} className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600">Update Profile</button>
-            <button onClick={() => setShowProfileWarning(false)} className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50">Cancel</button></div>
+            <div className="flex gap-3">
+              <button onClick={() => navigate('/profile')} className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600">
+                Update Profile
+              </button>
+              <button onClick={() => setShowProfileWarning(false)} className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50">
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

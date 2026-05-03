@@ -1,10 +1,9 @@
-// ProfilePage.jsx - Corrected version with no duplicate declarations
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import axios from 'axios';
 import API_BASE_URL from '../config';
-import { User, MapPin, Package, LogOut, Edit2, Save, X, Navigation, Check, AlertCircle } from 'lucide-react';
+import { User, MapPin, Package, LogOut, Edit2, X, Navigation, Check, AlertCircle, CreditCard, Banknote, Trash2, Plus, Info, Eye, Shield } from 'lucide-react';
 
 const ProfilePage = () => {
   const { user, setUser, logout } = useData();
@@ -16,6 +15,22 @@ const ProfilePage = () => {
   const [editingAddress, setEditingAddress] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
+  
+  // Bank account states
+  const [bankAccount, setBankAccount] = useState(null);
+  const [showBankForm, setShowBankForm] = useState(false);
+  const [bankForm, setBankForm] = useState({
+    accountNumber: '',
+    bankCode: '',
+    bankName: ''
+  });
+  const [banks, setBanks] = useState([]);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [verifyingBank, setVerifyingBank] = useState(false);
+  const [selectedBank, setSelectedBank] = useState('');
+  const [bankError, setBankError] = useState('');
+  const [verifiedAccount, setVerifiedAccount] = useState(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   // Location management states
   const [editingLocation, setEditingLocation] = useState(false);
@@ -34,7 +49,7 @@ const ProfilePage = () => {
   const [selectedAddressState, setSelectedAddressState] = useState('');
   const [selectedAddressCity, setSelectedAddressCity] = useState('');
   
-  // Profile form state - ONLY DECLARE ONCE
+  // Profile form state
   const [profileForm, setProfileForm] = useState({
     fullName: '',
     businessName: '',
@@ -51,6 +66,145 @@ const ProfilePage = () => {
     country: 'Nigeria',
     isDefault: false
   });
+
+  // Fetch banks on component mount
+  useEffect(() => {
+    fetchBanks();
+  }, []);
+
+  // Update bank account when user data loads
+  useEffect(() => {
+    if (user && user.bankAccount) {
+      // Find bank name from banks list if available
+      const bank = banks.find(b => b.code === user.bankAccount.bankCode);
+      setBankAccount({
+        ...user.bankAccount,
+        bankName: bank?.name || user.bankAccount.bankName
+      });
+    } else {
+      setBankAccount(null);
+    }
+  }, [user, banks]);
+
+  // Fetch list of Nigerian banks
+  const fetchBanks = async () => {
+    setBankLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/banks`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setBanks(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching banks:', error);
+    } finally {
+      setBankLoading(false);
+    }
+  };
+
+  // Verify bank account without saving
+  const verifyBankAccount = async () => {
+    if (!bankForm.accountNumber || !bankForm.bankCode) {
+      setBankError('Please fill in all required fields');
+      return;
+    }
+    
+    if (bankForm.accountNumber.length !== 10) {
+      setBankError('Account number must be 10 digits');
+      return;
+    }
+    
+    setVerifyingBank(true);
+    setBankError('');
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/user/bank-account/verify`, {
+        accountNumber: bankForm.accountNumber,
+        bankCode: bankForm.bankCode
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setVerifiedAccount(response.data.data);
+        setShowConfirmation(true);
+      }
+    } catch (error) {
+      setBankError(error.response?.data?.message || 'Failed to verify bank account');
+    } finally {
+      setVerifyingBank(false);
+    }
+  };
+
+  // Unified save/update bank account using the same endpoint
+  const saveBankAccount = async () => {
+    if (!verifiedAccount) return;
+    
+    setVerifyingBank(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      // Using the unified POST endpoint for both create and update
+      const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
+        accountNumber: verifiedAccount.accountNumber,
+        bankCode: verifiedAccount.bankCode,
+        accountName: verifiedAccount.accountName
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        const bank = banks.find(b => b.code === response.data.data.bankCode);
+        const newBankAccount = {
+          ...response.data.data,
+          bankName: bank?.name
+        };
+        setBankAccount(newBankAccount);
+        // Update user context with new bank account
+        setUser(prev => ({ ...prev, bankAccount: newBankAccount }));
+        setShowBankForm(false);
+        setShowConfirmation(false);
+        setBankForm({ accountNumber: '', bankCode: '', bankName: '' });
+        setSelectedBank('');
+        setVerifiedAccount(null);
+        
+        const message = response.data.message || 'Bank account saved successfully';
+        alert(message);
+      }
+    } catch (error) {
+      setBankError(error.response?.data?.message || 'Failed to save bank account');
+    } finally {
+      setVerifyingBank(false);
+    }
+  };
+
+  // Remove bank account
+  const removeBankAccount = async () => {
+    if (!window.confirm('Are you sure you want to remove your bank account?')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`${API_BASE_URL}/user/bank-account`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setBankAccount(null);
+        // Update user context to remove bank account
+        setUser(prev => {
+          const { bankAccount, ...rest } = prev;
+          return rest;
+        });
+        alert('Bank account removed successfully!');
+      }
+    } catch (error) {
+      console.error('Error removing bank account:', error);
+      alert('Failed to remove bank account');
+    }
+  };
 
   // Redirect if not logged in
   useEffect(() => {
@@ -154,7 +308,6 @@ const ProfilePage = () => {
 
   // Handle state selection
   const handleStateChange = (state) => {
-    console.log('State selected:', state);
     setTempState(state);
     setTempCity('');
     setAvailableCities([]);
@@ -229,49 +382,44 @@ const ProfilePage = () => {
     }
   };
 
-// Replace the updateProfile function in ProfilePage.jsx with this:
-
-const updateProfile = async () => {
-  setLoading(true);
-  try {
-    const token = localStorage.getItem('token');
-    
-    // Prepare the data to send
-    const updateData = {
-      fullName: profileForm.fullName,
-      businessName: profileForm.businessName,
-      phone: profileForm.phone
-    };
-    
-    const response = await axios.put(`${API_BASE_URL}/user/profile`, updateData, {
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    // Check if response exists and has success property
-    if (response.success === true) {
-      // Update the user context with new data
-      setUser(prev => ({ 
-        ...prev, 
+  const updateProfile = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      const updateData = {
         fullName: profileForm.fullName,
         businessName: profileForm.businessName,
         phone: profileForm.phone
-      }));
-      setEditingProfile(false);
-      alert('Profile updated successfully!');
-    } else {
-      // This handles cases where response exists but success is false
-      const errorMsg = response?.data?.message || 'Failed to update profile';
-      alert(errorMsg);
-    }
-  } catch (error) {
+      };
+      
+      const response = await axios.put(`${API_BASE_URL}/user/profile`, updateData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.data.success) {
+        setUser(prev => ({ 
+          ...prev, 
+          fullName: profileForm.fullName,
+          businessName: profileForm.businessName,
+          phone: profileForm.phone
+        }));
+        setEditingProfile(false);
+        alert('Profile updated successfully!');
+      } else {
+        const errorMsg = response?.data?.message || 'Failed to update profile';
+        alert(errorMsg);
+      }
+    } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to update profile. Please try again.';
       alert(errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addAddress = async () => {
     if (!addressForm.street || !addressForm.city || !addressForm.state) {
@@ -482,8 +630,10 @@ const updateProfile = async () => {
       {/* Profile Info Tab */}
       {activeTab === 'profile' && (
         <div className="bg-white overflow-hidden border border-gray-200 rounded-lg p-6 max-w-2xl">
+          {/* Personal Information Section */}
           {editingProfile ? (
             <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Personal Information</h3>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Full Name
@@ -551,41 +701,318 @@ const updateProfile = async () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="relative">
-                <div className="space-y-3 flex-1">
-                  <div className="pb-3 border-b border-gray-100">
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="text-lg font-medium text-gray-900">{user.fullName || 'Not set'}</p>
-                  </div>
-                  <div className="pb-3 border-b border-gray-100">
-                    <p className="text-sm text-gray-500">Business Name</p>
-                    <p className="text-lg font-medium text-gray-900">{user.businessName || 'Not set'}</p>
-                    {!user.businessName && (
-                      <p className="text-xs text-gray-400 mt-1">Your full name will be used for product listings</p>
-                    )}
-                  </div>
-                  <div className="pb-3 border-b border-gray-100">
-                    <p className="text-sm text-gray-500">Phone Number</p>
-                    <p className="text-lg font-medium text-gray-900">{user.phone || 'Not set'}</p>
-                    {!user.phone && (
-                      <p className="text-xs text-orange-500 mt-1">Required for selling and checkout</p>
-                    )}
-                  </div>
-                  <div className="pb-3">
-                    <p className="text-sm text-gray-500">Email Address</p>
-                    <p className="text-lg font-medium text-gray-900">{user.email}</p>
-                  </div>
-                </div>
+              <div className="flex justify-between items-start">
+                <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
                 <button
                   onClick={() => setEditingProfile(true)}
-                  className="absolute -top-2 -right-2 flex items-center gap-2 px-4 py-2 text-orange-500 hover:bg-orange-50 rounded-lg transition"
+                  className="flex items-center gap-2 px-4 py-2 text-orange-500 hover:bg-orange-50 rounded-lg transition"
                 >
                   <Edit2 className="w-4 h-4" />
                   Edit
                 </button>
               </div>
+              <div className="space-y-3">
+                <div className="pb-3 border-b border-gray-100">
+                  <p className="text-sm text-gray-500">Full Name</p>
+                  <p className="text-lg font-medium text-gray-900">{user.fullName || 'Not set'}</p>
+                </div>
+                <div className="pb-3 border-b border-gray-100">
+                  <p className="text-sm text-gray-500">Business Name</p>
+                  <p className="text-lg font-medium text-gray-900">{user.businessName || 'Not set'}</p>
+                  {!user.businessName && (
+                    <p className="text-xs text-gray-400 mt-1">Your full name will be used for product listings</p>
+                  )}
+                </div>
+                <div className="pb-3 border-b border-gray-100">
+                  <p className="text-sm text-gray-500">Phone Number</p>
+                  <p className="text-lg font-medium text-gray-900">{user.phone || 'Not set'}</p>
+                  {!user.phone && (
+                    <p className="text-xs text-orange-500 mt-1">Required for selling and checkout</p>
+                  )}
+                </div>
+                <div className="pb-3">
+                  <p className="text-sm text-gray-500">Email Address</p>
+                  <p className="text-lg font-medium text-gray-900">{user.email}</p>
+                </div>
+              </div>
             </div>
           )}
+
+          {/* Bank Account Section */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-orange-500" />
+                <h3 className="font-semibold text-gray-900">Payout Bank Account</h3>
+                {bankAccount && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full ml-2">
+                    Active
+                  </span>
+                )}
+              </div>
+              {!showBankForm && !showConfirmation && (
+                <button
+                  onClick={() => {
+                    setShowBankForm(true);
+                    setBankError('');
+                    setVerifiedAccount(null);
+                  }}
+                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                >
+                  {bankAccount ? (
+                    <>
+                      <Edit2 className="w-4 h-4" />
+                      Change Account
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Add Bank Account
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            
+            {!showBankForm && !showConfirmation ? (
+              bankAccount ? (
+                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <CreditCard className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{bankAccount.bankName || 'Bank Account'}</p>
+                        <p className="text-lg font-mono font-bold text-gray-900">{bankAccount.accountNumber}</p>
+                        <p className="text-sm text-gray-700 mt-1">
+                          Account Name: {bankAccount.verifiedAccountName || bankAccount.accountName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5 text-green-600" />
+                            <span className="text-xs text-green-700">Verified with Paystack</span>
+                          </div>
+                          {bankAccount.verifiedAt && (
+                            <span className="text-xs text-gray-400">
+                              Verified: {new Date(bankAccount.verifiedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={removeBankAccount}
+                      className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition"
+                      title="Remove bank account"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-green-200">
+                    <p className="text-xs text-gray-600 flex items-center gap-1">
+                      <Info className="w-3 h-3" />
+                      This account will be used for payouts when you sell products on Zoomia or for refund from order cancelation or dispute settlement
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 bg-gray-50 rounded-lg text-center border-2 border-dashed border-gray-200">
+                  <Banknote className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium">No bank account added</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Add a bank account to receive payouts for your sales
+                  </p>
+                </div>
+              )
+            ) : showConfirmation && verifiedAccount ? (
+              // Confirmation step - Show verified account details
+              <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="w-5 h-5 text-green-600" />
+                  <h4 className="font-semibold text-gray-900">Verify Bank Account Details</h4>
+                </div>
+                
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm text-gray-600 mb-2">We've verified this account with Paystack:</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Bank:</span>
+                      <span className="font-medium text-gray-900">
+                        {banks.find(b => b.code === verifiedAccount.bankCode)?.name || 'Selected Bank'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Account Number:</span>
+                      <span className="font-mono font-bold text-gray-900">{verifiedAccount.accountNumber}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-green-200">
+                      <span className="text-sm text-gray-500">Account Name:</span>
+                      <span className="font-semibold text-green-700">{verifiedAccount.accountName}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 p-2 bg-green-100 rounded flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600" />
+                    <p className="text-xs text-green-700">Account verified successfully with Paystack</p>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-2">Please confirm:</p>
+                  <p className="text-xs text-blue-700">
+                    Is the account name above correct? This account will be used for your payouts.
+                    {bankAccount && ' This will replace your existing bank account.'}
+                  </p>
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={saveBankAccount}
+                    disabled={verifyingBank}
+                    className="flex-1 bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition"
+                  >
+                    {verifyingBank ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Saving...
+                      </div>
+                    ) : (
+                      bankAccount ? 'Yes, Update Account' : 'Yes, Add Account'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowConfirmation(false);
+                      setVerifiedAccount(null);
+                      setShowBankForm(true);
+                    }}
+                    className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
+                  >
+                    No, Go Back
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Bank account form - First step
+              <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-900">
+                    {bankAccount ? 'Change Bank Account' : 'Add Bank Account'}
+                  </h4>
+                  <button
+                    onClick={() => {
+                      setShowBankForm(false);
+                      setBankError('');
+                      setBankForm({ accountNumber: '', bankCode: '', bankName: '' });
+                      setSelectedBank('');
+                      setVerifiedAccount(null);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                {bankError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <p className="text-sm text-red-600">{bankError}</p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select Bank <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedBank}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      setSelectedBank(selected);
+                      const bank = banks.find(b => b.code === selected);
+                      setBankForm(prev => ({ 
+                        ...prev, 
+                        bankCode: selected,
+                        bankName: bank?.name || ''
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    disabled={bankLoading}
+                  >
+                    <option value="">Select your bank</option>
+                    {banks.map(bank => (
+                      <option key={bank.code} value={bank.code}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Account Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={bankForm.accountNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setBankForm(prev => ({ ...prev, accountNumber: value }));
+                    }}
+                    placeholder="0123456789"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    maxLength="10"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">10-digit account number</p>
+                </div>
+                
+                {bankForm.bankCode && bankForm.accountNumber.length === 10 && (
+                  <div className="p-3 bg-blue-50 rounded-lg flex items-start gap-2">
+                    <Eye className="w-4 h-4 text-blue-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-blue-800 font-medium">Preview Available</p>
+                      <p className="text-xs text-blue-700">
+                        We'll verify this account and show you the account name before saving
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={verifyBankAccount}
+                    disabled={verifyingBank || !bankForm.accountNumber || !bankForm.bankCode}
+                    className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    {verifyingBank ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Verifying...
+                      </div>
+                    ) : (
+                      'Verify Account'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowBankForm(false);
+                      setBankError('');
+                      setBankForm({ accountNumber: '', bankCode: '', bankName: '' });
+                      setSelectedBank('');
+                      setVerifiedAccount(null);
+                    }}
+                    className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                
+                <p className="text-xs text-gray-500 text-center">
+                  We'll verify your account with Paystack and show you the account name for confirmation
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Delivery Location Section */}
           <div className="mt-8 pt-6 border-t border-gray-200">
@@ -987,191 +1414,161 @@ const updateProfile = async () => {
         </div>
       )}
 
-{/* Orders Tab */}
-{activeTab === 'orders' && (
-  <div>
-    <h2 className="text-xl font-semibold text-gray-900 mb-6">Order History</h2>
-    
-    {loading ? (
-      <div className="text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-      </div>
-    ) : orders.length === 0 ? (
-      <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <Package className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-        <p className="text-gray-500">No orders yet</p>
-        <button 
-          onClick={() => navigate('/')}
-          className="mt-4 text-orange-500 hover:text-orange-600"
-        >
-          Start Shopping
-        </button>
-      </div>
-    ) : (
-      <div className="space-y-6">
-        {orders.map((order) => {
-          const displayReference = order.reference || order._id;
-          const orderItems = order.items || [];
-          const orderTotal = order.total || 0;
-          const orderStatus = order.status || 'pending';
-          const orderDate = order.createdAt;
+      {/* Orders Tab */}
+      {activeTab === 'orders' && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Order History</h2>
           
-          // Get seller info from the enhanced order data
-          const sellerName = order.seller?.sellerName || order.sellerName || 'Seller';
-          const sellerPhone = order.seller?.sellerPhone || order.sellerPhone;
-          const sellerEmail = order.seller?.sellerEmail || order.sellerEmail;
-          const sellerProfileImage = order.seller?.sellerProfileImage;
-          
-          return (
-            <div key={order._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
-              {/* Order Header */}
-              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center">
-                <div>
-                  <p className="text-sm text-gray-500 font-mono">
-                    Order #{displayReference.slice(-8)}
-                  </p>
-                  <p className="text-xs text-gray-400">{new Date(orderDate).toLocaleDateString()}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 text-xs rounded-full bg-${getOrderStatusColor(orderStatus)}-100 text-${getOrderStatusColor(orderStatus)}-700 capitalize`}>
-                    {orderStatus}
-                  </span>
-                  <p className="font-bold text-gray-900">{formatPrice(orderTotal)}</p>
-                </div>
-              </div>
-              
-              {/* Order Items */}
-              <div className="p-6">
-                <div className="space-y-3">
-                  {orderItems.map((item, idx) => (
-                    <div key={idx} className="flex gap-4">
-                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                        <img 
-                          src={item.image} 
-                          alt={item.title}
-                          className="w-full h-full object-cover rounded"
-                          onError={(e) => {
-                            e.target.src = '/placeholder.png';
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{item.title}</p>
-                        <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
-                        <p className="text-orange-500 font-semibold">{formatPrice(item.price)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Seller Information Section */}
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    {sellerProfileImage ? (
-                      <img src={sellerProfileImage} alt={sellerName} className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-orange-200 flex items-center justify-center">
-                        <span className="text-orange-600 font-semibold">
-                          {sellerName.charAt(0)}
-                        </span>
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-semibold text-gray-900">Sold by: {sellerName}</h3>
-                      <p className="text-xs text-gray-600">Seller</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 text-sm">
-                    {sellerPhone && (
-                      <p className="flex items-center gap-2">
-                        <span className="text-gray-600">📞 Phone:</span>
-                        <a href={`tel:${sellerPhone}`} className="text-orange-600 hover:text-orange-700 font-medium">
-                          {sellerPhone}
-                        </a>
-                      </p>
-                    )}
-                    {sellerEmail && (
-                      <p className="flex items-center gap-2">
-                        <span className="text-gray-600">✉️ Email:</span>
-                        <a href={`mailto:${sellerEmail}`} className="text-orange-600 hover:text-orange-700">
-                          {sellerEmail}
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="mt-3 pt-3 border-t border-orange-200">
-                    <p className="text-xs text-gray-600">
-                      <strong>💡 Note:</strong> Contact the seller directly to coordinate delivery. 
-                      You can call or email them to arrange a suitable delivery time.
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Delivery Address */}
-                {order.deliveryAddress && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Delivery Address
-                    </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
-                    </p>
-                  </div>
-                )}
-                
-                {/* Tracking Information */}
-                {order.trackingInfo && (orderStatus === 'shipped' || orderStatus === 'processing') && (
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm font-medium text-blue-900">Tracking Information</p>
-                    <p className="text-xs text-blue-700">Tracking #: {order.trackingInfo.trackingNumber}</p>
-                    <p className="text-xs text-blue-700">Carrier: {order.trackingInfo.carrier}</p>
-                    {order.trackingInfo.estimatedDelivery && (
-                      <p className="text-xs text-blue-700">Est. Delivery: {new Date(order.trackingInfo.estimatedDelivery).toLocaleDateString()}</p>
-                    )}
-                  </div>
-                )}
-                
-                {/* Quick Contact Button */}
-                {sellerPhone && (
-                  <div className="mt-4">
-                    <a
-                      href={`tel:${sellerPhone}`}
-                      className="block text-center w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium"
-                    >
-                      📞 Call Seller to Arrange Delivery
-                    </a>
-                  </div>
-                )}
-                
-                {/* Action Buttons */}
-                <div className="mt-4 flex gap-3">
-                  {orderStatus === 'delivered' && (
-                    <button className="text-orange-500 hover:text-orange-600 text-sm">
-                      Write a Review
-                    </button>
-                  )}
-                  {orderStatus === 'pending' && (
-                    <button className="text-red-500 hover:text-red-600 text-sm">
-                      Cancel Order
-                    </button>
-                  )}
-                  {orderStatus === 'shipped' && (
-                    <button className="text-green-500 hover:text-green-600 text-sm">
-                      Confirm Delivery
-                    </button>
-                  )}
-                </div>
-              </div>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
             </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
-)}
+          ) : orders.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <Package className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No orders yet</p>
+              <button 
+                onClick={() => navigate('/')}
+                className="mt-4 text-orange-500 hover:text-orange-600"
+              >
+                Start Shopping
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {orders.map((order) => {
+                const displayReference = order.reference || order._id;
+                const orderItems = order.items || [];
+                const orderTotal = order.total || 0;
+                const orderStatus = order.status || 'pending';
+                const orderDate = order.createdAt;
+                
+                const sellerName = order.seller?.sellerName || order.sellerName || 'Seller';
+                const sellerPhone = order.seller?.sellerPhone || order.sellerPhone;
+                const sellerEmail = order.seller?.sellerEmail || order.sellerEmail;
+                const sellerProfileImage = order.seller?.sellerProfileImage;
+                
+                return (
+                  <div key={order._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
+                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center">
+                      <div>
+                        <p className="text-sm text-gray-500 font-mono">
+                          Order #{displayReference.slice(-8)}
+                        </p>
+                        <p className="text-xs text-gray-400">{new Date(orderDate).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 text-xs rounded-full bg-${getOrderStatusColor(orderStatus)}-100 text-${getOrderStatusColor(orderStatus)}-700 capitalize`}>
+                          {orderStatus}
+                        </span>
+                        <p className="font-bold text-gray-900">{formatPrice(orderTotal)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="p-6">
+                      <div className="space-y-3">
+                        {orderItems.map((item, idx) => (
+                          <div key={idx} className="flex gap-4">
+                            <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                              <img 
+                                src={item.image || item.product?.images?.[0] || '/placeholder.png'} 
+                                alt={item.title}
+                                className="w-full h-full object-cover rounded"
+                                onError={(e) => {
+                                  e.target.src = '/placeholder.png';
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">{item.title}</p>
+                              <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
+                              <p className="text-orange-500 font-semibold">{formatPrice(item.price)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                        <div className="flex items-center gap-3 mb-3">
+                          {sellerProfileImage ? (
+                            <img src={sellerProfileImage} alt={sellerName} className="w-10 h-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-orange-200 flex items-center justify-center">
+                              <span className="text-orange-600 font-semibold">
+                                {sellerName.charAt(0)}
+                              </span>
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="font-semibold text-gray-900">Sold by: {sellerName}</h3>
+                            <p className="text-xs text-gray-600">Seller</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          {sellerPhone && (
+                            <p className="flex items-center gap-2">
+                              <span className="text-gray-600">📞 Phone:</span>
+                              <a href={`tel:${sellerPhone}`} className="text-orange-600 hover:text-orange-700 font-medium">
+                                {sellerPhone}
+                              </a>
+                            </p>
+                          )}
+                          {sellerEmail && (
+                            <p className="flex items-center gap-2">
+                              <span className="text-gray-600">✉️ Email:</span>
+                              <a href={`mailto:${sellerEmail}`} className="text-orange-600 hover:text-orange-700">
+                                {sellerEmail}
+                              </a>
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-orange-200">
+                          <p className="text-xs text-gray-600">
+                            <strong>💡 Note:</strong> Contact the seller directly to coordinate delivery.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {order.deliveryAddress && (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                            <MapPin className="w-4 h-4" />
+                            Delivery Address
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {order.trackingInfo && (orderStatus === 'shipped' || orderStatus === 'processing') && (
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm font-medium text-blue-900">Tracking Information</p>
+                          <p className="text-xs text-blue-700">Tracking #: {order.trackingInfo.trackingNumber}</p>
+                          <p className="text-xs text-blue-700">Carrier: {order.trackingInfo.carrier}</p>
+                        </div>
+                      )}
+                      
+                      {sellerPhone && (
+                        <div className="mt-4">
+                          <a
+                            href={`tel:${sellerPhone}`}
+                            className="block text-center w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium"
+                          >
+                            📞 Call Seller to Arrange Delivery
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
