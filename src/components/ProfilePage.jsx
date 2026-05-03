@@ -481,67 +481,75 @@ const [loadingPayouts, setLoadingPayouts] = useState(false);
     }
   };
 
-  // Verify bank account without saving
-  const verifyBankAccount = async () => {
-    if (!bankForm.accountNumber || !bankForm.bankCode) {
-      setBankError('Please fill in all required fields');
-      return;
-    }
+// Verify bank account without saving
+const verifyBankAccount = async () => {
+  if (!bankForm.accountNumber || !bankForm.bankCode) {
+    setBankError('Please fill in all required fields');
+    return;
+  }
+  
+  if (bankForm.accountNumber.length !== 10) {
+    setBankError('Account number must be 10 digits');
+    return;
+  }
+  
+  setVerifyingBank(true);
+  setBankError('');
+  
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.post(`${API_BASE_URL}/user/bank-account/verify`, {
+      accountNumber: bankForm.accountNumber,
+      bankCode: bankForm.bankCode
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
     
-    if (bankForm.accountNumber.length !== 10) {
-      setBankError('Account number must be 10 digits');
-      return;
-    }
-    
-    setVerifyingBank(true);
-    setBankError('');
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_BASE_URL}/user/bank-account/verify`, {
-        accountNumber: bankForm.accountNumber,
-        bankCode: bankForm.bankCode
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+    if (response.data.success) {
+      // Get the bank name from the banks list (already available in frontend)
+      const selectedBankData = banks.find(b => b.code === bankForm.bankCode);
       
-      if (response.data.success) {
-        setVerifiedAccount(response.data.data);
-        setShowConfirmation(true);
-      }
-    } catch (error) {
-      setBankError(error.response?.data?.message || 'Failed to verify bank account');
-    } finally {
-      setVerifyingBank(false);
+      // Add bankName to the verified account object
+      setVerifiedAccount({
+        ...response.data.data,
+        bankName: selectedBankData?.name || '' // Add bank name here
+      });
+      setShowConfirmation(true);
     }
-  };
+  } catch (error) {
+    setBankError(error.response?.data?.message || 'Failed to verify bank account');
+  } finally {
+    setVerifyingBank(false);
+  }
+};
 
-  // Unified save/update bank account using the same endpoint
-  const saveBankAccount = async () => {
-    if (!verifiedAccount) return;
+const saveBankAccount = async () => {
+  if (!verifiedAccount) return;
+  
+  setVerifyingBank(true);
+  
+  try {
+    const token = localStorage.getItem('token');
     
-    setVerifyingBank(true);
+    const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
+      accountNumber: verifiedAccount.accountNumber,
+      bankCode: verifiedAccount.bankCode,
+      accountName: verifiedAccount.accountName,
+      bankName: verifiedAccount.bankName // This will now have the value
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
     
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
-        accountNumber: verifiedAccount.accountNumber,
-        bankCode: verifiedAccount.bankCode,
-        accountName: verifiedAccount.accountName
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        const message = response.data.message || 'Bank account saved successfully';
-        alert(message);
-        window.location.reload();
-      }
-    } catch (error) {
-      setBankError(error.response?.data?.message || 'Failed to save bank account');
-      setVerifyingBank(false);
+    if (response.data.success) {
+      const message = response.data.message || 'Bank account saved successfully';
+      alert(message);
+      window.location.reload();
     }
-  };
+  } catch (error) {
+    setBankError(error.response?.data?.message || 'Failed to save bank account');
+    setVerifyingBank(false);
+  }
+};
 
   // Remove bank account
   const removeBankAccount = async () => {
