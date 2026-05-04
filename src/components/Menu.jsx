@@ -23,8 +23,8 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
   };
   
   return(
-    <div className={`w-full md:w-[300px] md:absolute md:top-12 h-screen md:h-auto bg-black/50 md:bg-transparent absolute top-0 bottom-0 md:bottom-auto md:top-4 left-0 z-[1000] ${isMenuOpen ? 'block' : 'hidden'}`}>
-      <div className="w-[350px] md:w-[300px] sticky md:relative top-0 md:top-0 bg-white h-[100%] max-w-[90%] border-r border-gray-200">
+    <div className={`w-full md:w-[300px] md:fixed md:top-12 h-screen md:h-auto bg-black/50 md:bg-transparent fixed top-0 bottom-0 md:bottom-auto md:top-6 left-0 z-[1000] ${isMenuOpen ? 'block' : 'hidden'}`}>
+      <div className="w-[350px] md:w-[300px] sticky md:relative top-0 md:top-6 bg-white h-[100%] max-w-[90%] border-r border-gray-200">
         <div className="w-full p-4 flex md:hidden items-center gap-4 border-b border-gray-200">
           <button onClick={() => setIsMenuOpen(false)} className="hover:bg-gray-100 p-1 rounded">
             <X className="w-5 h-5" />

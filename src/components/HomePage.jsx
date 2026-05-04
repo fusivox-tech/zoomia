@@ -4,6 +4,69 @@ import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 import { ChevronLeft, ChevronRight, MapPin, Navigation, ArrowRight } from 'lucide-react';
 
+const Banners = () => {
+  const scrollRef = useRef(null);
+
+  const scrollLeft = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({
+        left: -scrollRef.current.clientWidth,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({
+        left: scrollRef.current.clientWidth,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* Left Scroll Button */}
+      <button
+        onClick={scrollLeft}
+        className="absolute md:hidden left-0 top-1/2 transform -translate-y-1/2 bg-black/20 text-white rounded-full p-2 hover:bg-black/70 transition z-10 ml-2"
+        aria-label="Scroll left"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      {/* Scrollable Images */}
+      <div 
+        ref={scrollRef}
+        className="flex md:justify-between scrollbar-hide mb-4 gap-4 overflow-x-auto"
+      >
+        <img 
+          src="https://res.cloudinary.com/danuehpic/image/upload/v1777883168/file_00000000656871f499b7ed8e1d9ea20d_aeo0rw.png" 
+          className="flex-1 md:max-w-[49%] h-auto" 
+        />
+        <img 
+          className="flex-1 md:max-w-[49%] h-auto" 
+          src="https://res.cloudinary.com/danuehpic/image/upload/v1777883151/file_0000000046c471f4a4f59597eb342b77_xdy11w.png" 
+        />
+      </div>
+
+      {/* Right Scroll Button */}
+      <button
+        onClick={scrollRight}
+        className="absolute md:hidden right-0 top-1/2 transform -translate-y-1/2 bg-black/20 text-white rounded-full p-2 hover:bg-black/70 transition z-10 mr-2"
+        aria-label="Scroll right"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  );
+};
+
 const HomePage = () => {
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -136,7 +199,7 @@ const HomePage = () => {
 
   // Featured Section with horizontal scroll
   const FeaturedSection = () => (
-    <section className="mb-4 border border-gray-200 bg-white p-4 rounded-lg">
+    <section className="mb-4 border border-orange-400 bg-white p-4 rounded-lg">
       <div className="flex justify-between items-center mb-5">
         <h2 className="text-xl font-bold text-gray-900">Featured Products</h2>
         {featuredProducts.length > 4 && (
@@ -171,27 +234,29 @@ const HomePage = () => {
     </section>
   );
 
-  // Category Section with responsive grid
-  const CategorySection = ({ category, products }) => (
-    <section className="mb-4 border border-gray-200 bg-white p-4 rounded-lg">
-      <div className="flex justify-between items-center mb-5">
-        <h2 className="text-xl font-bold text-gray-900">{category}</h2>
-        <button
-          onClick={() => navigate(`/search?category=${encodeURIComponent(category)}`)}
-          className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
-        >
-          View All
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
-        {products.map((product) => (
-          <GridProductCard key={product._id} product={product} />
-        ))}
-      </div>
-    </section>
-  );
+// Category Section with responsive grid and alternating borders
+const CategorySection = ({ category, products, index }) => (
+  <section className={`mb-4 border bg-white p-4 rounded-lg ${
+    index % 2 === 1 ? 'border-orange-400' : 'border-gray-200'
+  }`}>
+    <div className="flex justify-between items-center mb-5">
+      <h2 className="text-xl font-bold text-gray-900">{category}</h2>
+      <button
+        onClick={() => navigate(`/search?category=${encodeURIComponent(category)}`)}
+        className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+      >
+        View All
+        <ArrowRight className="w-4 h-4" />
+      </button>
+    </div>
+    
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
+      {products.map((product) => (
+        <GridProductCard key={product._id} product={product} />
+      ))}
+    </div>
+  </section>
+);
 
   // Skeleton loaders
   const HorizontalSkeleton = () => (
@@ -320,14 +385,17 @@ const HomePage = () => {
     <div className="w-full max-w-7xl mx-auto px-4 py-4">
 
       {featuredProducts.length > 0 && <FeaturedSection />}
+      
+      <Banners />
 
-      {categoriesWithProducts.map((categoryData) => (
-        <CategorySection
-          key={categoryData.category}
-          category={categoryData.category}
-          products={categoryData.products}
-        />
-      ))}
+      {categoriesWithProducts.map((categoryData, index) => (
+      <CategorySection
+        key={categoryData.category}
+        category={categoryData.category}
+        products={categoryData.products}
+        index={index}
+      />
+    ))}
     </div>
   );
 };

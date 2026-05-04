@@ -1,10 +1,12 @@
 // components/SellerDeliveryZones.jsx 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useData } from '../contexts/DataContext';
 import API_BASE_URL from '../config';
 import { MapPin, Plus, X, ChevronDown, ChevronUp, Truck, Tag, Globe, Layers } from 'lucide-react';
 
 const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) => {
+  const { showSuccess, showError } = useData();
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
   const [selectedState, setSelectedState] = useState('');
@@ -121,7 +123,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
 
   const addDeliveryZone = () => {
     if (!selectedState || !selectedCity) {
-      alert('Please select both state and city');
+      showError('Please select both state and city');
       return;
     }
     
@@ -131,7 +133,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
     );
     
     if (zoneExists) {
-      alert(`Delivery zone for ${selectedCity}, ${selectedState} already exists`);
+      showError(`Delivery zone for ${selectedCity}, ${selectedState} already exists`);
       return;
     }
     
@@ -616,11 +618,11 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                 <button
                   onClick={async () => {
                     if (!selectedBulkState) {
-                      alert('Please select a state');
+                      showError('Please select a state');
                       return;
                     }
                     if (bulkStatePrice <= 0) {
-                      alert('Please enter a valid delivery price');
+                      showError('Please enter a valid delivery price');
                       return;
                     }
                     
@@ -645,7 +647,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                           }));
                         
                         if (newZones.length === 0) {
-                          alert(`All cities in ${selectedBulkState} already have delivery zones`);
+                          showError(`All cities in ${selectedBulkState} already have delivery zones`);
                           setShowBulkStateModal(false);
                           setLoading(false);
                           return;
@@ -656,7 +658,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                         onZonesUpdate?.(updatedZones);
                         setTotalZones(updatedZones.length);
                         
-                        alert(`Added ${newZones.length} delivery zones for ${selectedBulkState}`);
+                        showSuccess(`Added ${newZones.length} delivery zones for ${selectedBulkState}`);
                         setShowBulkStateModal(false);
                         setSelectedBulkState('');
                         setBulkStatePrice(0);
@@ -670,7 +672,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                       }
                     } catch (error) {
                       console.error('Error adding state zones:', error);
-                      alert('Failed to add delivery zones for state');
+                      showError('Failed to add delivery zones for state');
                     } finally {
                       setLoading(false);
                     }
@@ -798,7 +800,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                 <button
                   onClick={async () => {
                     if (nationwidePrice <= 0) {
-                      alert('Please enter a valid delivery price');
+                      showError('Please enter a valid delivery price');
                       return;
                     }
                     
@@ -841,12 +843,12 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                       }
                       
                       if (totalNewZones === 0) {
-                        alert('All cities already have delivery zones configured');
+                        showError('All cities already have delivery zones configured');
                       } else {
                         setDeliveryZones(updatedZones);
                         onZonesUpdate?.(updatedZones);
                         setTotalZones(updatedZones.length);
-                        alert(`Added ${totalNewZones} delivery zones across all states in Nigeria`);
+                        showSuccess(`Added ${totalNewZones} delivery zones across all states in Nigeria`);
                       }
                       
                       setShowNationwideModal(false);
@@ -860,7 +862,7 @@ const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) =>
                       });
                     } catch (error) {
                       console.error('Error adding nationwide delivery:', error);
-                      alert('Failed to add nationwide delivery. Please try again.');
+                      showError('Failed to add nationwide delivery. Please try again.');
                     } finally {
                       setAddingNationwide(false);
                     }

@@ -1,5 +1,3 @@
-// DataContext.jsx
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../config';
@@ -22,6 +20,35 @@ export const DataProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [cartItems, setCartItems] = useState([]);
   const [cartCount, setCartCount] = useState(0);
+  
+  // Alert state
+  const [alert, setAlert] = useState(null);
+
+  // Alert functions
+  const showAlert = useCallback((type, message, duration = 5000) => {
+    setAlert({ type, message, duration });
+  }, []);
+
+  const hideAlert = useCallback(() => {
+    setAlert(null);
+  }, []);
+
+  // Convenience methods for different alert types
+  const showSuccess = useCallback((message, duration) => {
+    showAlert('success', message, duration);
+  }, [showAlert]);
+
+  const showError = useCallback((message, duration) => {
+    showAlert('error', message, duration);
+  }, [showAlert]);
+
+  const showWarning = useCallback((message, duration) => {
+    showAlert('warning', message, duration);
+  }, [showAlert]);
+
+  const showInfo = useCallback((message, duration) => {
+    showAlert('info', message, duration);
+  }, [showAlert]);
 
   const getAuthHeaders = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -37,7 +64,8 @@ export const DataProvider = ({ children }) => {
     localStorage.removeItem("userId");
     localStorage.removeItem("userEmail");
     setUser(null);
-  }, []);
+    showError('Session expired. Please login again.');
+  }, [showError]);
 
   // Load cart from localStorage (for non-logged in users)
   const loadLocalCart = useCallback(() => {
@@ -143,6 +171,7 @@ export const DataProvider = ({ children }) => {
       }
       
       await saveDatabaseCart(currentCart);
+      showSuccess(`${item.title} added to cart!`);
     } else {
       // Not logged in - save to localStorage
       const currentCart = [...cartItems];
@@ -161,8 +190,9 @@ export const DataProvider = ({ children }) => {
       }
       
       saveLocalCart(currentCart);
+      showSuccess(`${item.title} added to cart!`);
     }
-  }, [user, cartItems, saveDatabaseCart, saveLocalCart]);
+  }, [user, cartItems, saveDatabaseCart, saveLocalCart, showSuccess]);
 
   // Update cart item quantity
   const updateCartQuantity = useCallback(async (index, newQuantity) => {
@@ -185,7 +215,8 @@ export const DataProvider = ({ children }) => {
     } else {
       saveLocalCart(updatedCart);
     }
-  }, [user, cartItems, saveDatabaseCart, saveLocalCart]);
+    showInfo('Item removed from cart');
+  }, [user, cartItems, saveDatabaseCart, saveLocalCart, showInfo]);
 
   // Clear cart
   const clearCart = useCallback(async () => {
@@ -231,45 +262,50 @@ export const DataProvider = ({ children }) => {
     fetchUserData();
   }, [fetchUserData]);
 
-// Update handleLoginSuccess in DataContext.jsx
-const handleLoginSuccess = (userData) => {
-  setUser({
-    id: userData.id,
-    userId: userData.userId,
-    email: userData.email,
-    fullName: userData.fullName,
-    businessName: userData.businessName || userData.fullName,
-    profileImage: userData.profileImage,
-    phone: userData.phone || '',
-  });
-  localStorage.setItem('user', JSON.stringify({
-    id: userData.id,
-    userId: userData.userId,
-    email: userData.email,
-    fullName: userData.fullName,
-    businessName: userData.businessName || userData.fullName,
-    profileImage: userData.profileImage,
-    phone: userData.phone || '',
-  }));
-};
-
-const updateUserProfile = async (profileData) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.put(`${API_BASE_URL}/user/profile`, profileData, {
-      headers: { Authorization: `Bearer ${token}` }
+  // Update handleLoginSuccess in DataContext.jsx
+  const handleLoginSuccess = (userData) => {
+    setUser({
+      id: userData.id,
+      userId: userData.userId,
+      email: userData.email,
+      fullName: userData.fullName,
+      businessName: userData.businessName || userData.fullName,
+      profileImage: userData.profileImage,
+      phone: userData.phone || '',
     });
-    
-    if (response.data.success) {
-      setUser(prev => ({ ...prev, ...response.data.data }));
-      return { success: true };
+    localStorage.setItem('user', JSON.stringify({
+      id: userData.id,
+      userId: userData.userId,
+      email: userData.email,
+      fullName: userData.fullName,
+      businessName: userData.businessName || userData.fullName,
+      profileImage: userData.profileImage,
+      phone: userData.phone || '',
+    }));
+    showSuccess(`Welcome back, ${userData.fullName || userData.businessName}!`);
+  };
+
+  const updateUserProfile = async (profileData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${API_BASE_URL}/user/profile`, profileData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setUser(prev => ({ ...prev, ...response.data.data }));
+        showSuccess('Profile updated successfully!');
+        return { success: true };
+      }
+      showError(response.data.message || 'Failed to update profile');
+      return { success: false, message: response.data.message };
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to update profile';
+      showError(errorMsg);
+      return { success: false, message: errorMsg };
     }
-    return { success: false, message: response.data.message };
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    return { success: false, message: error.response?.data?.message || 'Failed to update profile' };
-  }
-};
+  };
 
   const logout = useCallback(() => {
     localStorage.removeItem("token");
@@ -277,7 +313,8 @@ const updateUserProfile = async (profileData) => {
     localStorage.removeItem("userEmail");
     setUser(null);
     loadLocalCart();
-  }, [loadLocalCart]);
+    showInfo('You have been logged out');
+  }, [loadLocalCart, showInfo]);
 
   const value = {
     user,
@@ -292,7 +329,15 @@ const updateUserProfile = async (profileData) => {
     handleLoginSuccess,
     logout,
     refetchUser: fetchUserData,
-    updateUserProfile
+    updateUserProfile,
+    // Alert functions
+    alert,
+    showAlert,
+    hideAlert,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo
   };
   
   return (

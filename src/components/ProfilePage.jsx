@@ -63,12 +63,12 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
       );
       
       if (response.data.success) {
-        alert(response.data.message);
+        showSuccess(response.data.message);
         if (onOrderCancelled) onOrderCancelled();
         setShowCancelModal(false);
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to cancel order');
+      showError(error.response?.data?.message || 'Failed to cancel order');
     } finally {
       setCancelling(false);
     }
@@ -248,11 +248,11 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
                 if (response.data.success) {
-                  alert(response.data.message);
+                  showSuccess(response.data.message);
                   onOrderCancelled();
                 }
               } catch (error) {
-                alert(error.response?.data?.message || 'Failed to confirm delivery');
+                showError(error.response?.data?.message || 'Failed to confirm delivery');
               }
             }
           }}
@@ -276,15 +276,15 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
                       { headers: { Authorization: `Bearer ${token}` } }
                     );
                     if (response.data.success) {
-                      alert(response.data.message);
+                      showSuccess(response.data.message);
                       onOrderCancelled();
                     }
                   } catch (error) {
-                    alert(error.response?.data?.message || 'Failed to file dispute');
+                    showError(error.response?.data?.message || 'Failed to file dispute');
                   }
                 })();
               } else {
-                alert('Please provide details about the dispute.');
+                showError('Please provide details about the dispute.');
               }
             }
           }}
@@ -378,7 +378,7 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
 };
 
 const ProfilePage = () => {
-  const { user, logout } = useData();
+  const { user, logout, showSuccess, showError } = useData();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -542,7 +542,7 @@ const saveBankAccount = async () => {
     
     if (response.data.success) {
       const message = response.data.message || 'Bank account saved successfully';
-      alert(message);
+      showSuccess(message);
       window.location.reload();
     }
   } catch (error) {
@@ -562,12 +562,12 @@ const saveBankAccount = async () => {
       });
       
       if (response.data.success) {
-        alert('Bank account removed successfully!');
+        showSuccess('Bank account removed successfully!');
         window.location.reload();
       }
     } catch (error) {
       console.error('Error removing bank account:', error);
-      alert('Failed to remove bank account');
+      showError('Failed to remove bank account');
     }
   };
 
@@ -739,12 +739,12 @@ const saveBankAccount = async () => {
       localStorage.setItem('locationSelectedAt', new Date().toISOString());
       setCurrentLocation({ state: tempState, city: tempCity });
       setEditingLocation(false);
-      alert(`Delivery location updated to ${tempCity}, ${tempState}!`);
+      showSuccess(`Delivery location updated to ${tempCity}, ${tempState}!`);
       setTimeout(() => {
         window.location.reload();
       }, 500);
     } else {
-      alert('Please select both state and city');
+      showError('Please select both state and city');
     }
   };
 
@@ -781,14 +781,14 @@ const saveBankAccount = async () => {
       
       if (response.data.success) {
         setEditingProfile(false);
-        alert('Profile updated successfully!');
+        showSuccess('Profile updated successfully!');
       } else {
         const errorMsg = response?.data?.message || 'Failed to update profile';
-        alert(errorMsg);
+        showError(errorMsg);
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to update profile. Please try again.';
-      alert(errorMessage);
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -797,7 +797,7 @@ const saveBankAccount = async () => {
   // Update the addAddress function
   const addAddress = async () => {
     if (!addressForm.street || !addressForm.city || !addressForm.state) {
-      alert('Please fill in all required fields');
+      showError('Please fill in all required fields');
       return;
     }
     
@@ -825,11 +825,11 @@ const saveBankAccount = async () => {
         setSelectedAddressState('');
         setSelectedAddressCity('');
         setAddressCities([]);
-        alert('Address added successfully!');
+        showSuccess('Address added successfully!');
       }
     } catch (error) {
       console.error('Error adding address:', error);
-      alert(error.response?.data?.message || 'Failed to add address');
+      showError(error.response?.data?.message || 'Failed to add address');
     } finally {
       setLoading(false);
     }
@@ -864,11 +864,11 @@ const saveBankAccount = async () => {
         setSelectedAddressState('');
         setSelectedAddressCity('');
         setAddressCities([]);
-        alert('Address updated successfully!');
+        showSuccess('Address updated successfully!');
       }
     } catch (error) {
       console.error('Error updating address:', error);
-      alert(error.response?.data?.message || 'Failed to update address');
+      showError(error.response?.data?.message || 'Failed to update address');
     } finally {
       setLoading(false);
     }
@@ -885,11 +885,11 @@ const saveBankAccount = async () => {
       });
       if (response.data.success) {
         setAddresses(addresses.filter(addr => addr._id !== addressId));
-        alert('Address deleted successfully!');
+        showSuccess('Address deleted successfully!');
       }
     } catch (error) {
       console.error('Error deleting address:', error);
-      alert(error.response?.data?.message || 'Failed to delete address');
+      showError(error.response?.data?.message || 'Failed to delete address');
     } finally {
       setLoading(false);
     }
@@ -907,11 +907,11 @@ const saveBankAccount = async () => {
           ...addr,
           isDefault: addr._id === addressId
         })));
-        alert('Default address updated!');
+        showSuccess('Default address updated!');
       }
     } catch (error) {
       console.error('Error setting default address:', error);
-      alert(error.response?.data?.message || 'Failed to set default address');
+      showError(error.response?.data?.message || 'Failed to set default address');
     } finally {
       setLoading(false);
     }

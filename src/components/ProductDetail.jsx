@@ -1,14 +1,14 @@
-// ProductDetail.jsx - With location-based shipping cost
-import { useState, useEffect } from 'react';
+// ProductDetail.jsx - With location-based shipping cost and "Buyers Also Viewed" section
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 import { useData } from '../contexts/DataContext';
-import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp, MapPin, Package } from 'lucide-react';
+import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp, MapPin, Package, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Skeleton Loader Components
 const ImageSkeleton = () => (
   <div className="animate-pulse">
-    <div className="border border-gray-200 p-4 mb-4 bg-white">
+    <div className="mb-4">
       <div className="w-full h-96 bg-gray-200"></div>
     </div>
     <div className="flex gap-2">
@@ -35,6 +35,22 @@ const InfoSkeleton = () => (
       <div className="h-12 bg-gray-200 rounded"></div>
       <div className="h-12 bg-gray-200 rounded"></div>
       <div className="h-12 bg-gray-200 rounded"></div>
+    </div>
+  </div>
+);
+
+// Related Products Skeleton
+const RelatedProductsSkeleton = () => (
+  <div className="mt-8">
+    <div className="h-7 w-48 bg-gray-200 rounded animate-pulse mb-4"></div>
+    <div className="flex gap-4 overflow-x-auto">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex-shrink-0 w-[150px] animate-pulse">
+          <div className="aspect-square bg-gray-200 rounded-lg"></div>
+          <div className="mt-2 h-4 bg-gray-200 rounded w-3/4"></div>
+          <div className="mt-1 h-5 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      ))}
     </div>
   </div>
 );
@@ -76,6 +92,30 @@ const FormattedDescription = ({ text, isExpanded, previewLength = 300 }) => {
   );
 };
 
+// Horizontal Product Card for related products
+const RelatedProductCard = ({ product, formatPrice, navigate }) => (
+  <div 
+    className="flex-shrink-0 w-[150px] md:w-[180px] cursor-pointer group"
+    onClick={() => navigate(`/product/${product._id}`)}
+  >
+    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 group-hover:border-orange-500 transition">
+      {product.images?.[0] ? (
+        <img 
+          src={product.images[0]} 
+          alt={product.title} 
+          className="w-full h-full object-contain group-hover:scale-105 transition duration-300"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
+      )}
+    </div>
+    <div className="mt-2">
+      <h3 className="font-medium text-sm line-clamp-2 text-gray-800">{product.title}</h3>
+      <p className="text-orange-600 font-bold text-sm mt-1">{formatPrice(product.price)}</p>
+    </div>
+  </div>
+);
+
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -88,6 +128,11 @@ const ProductDetail = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  
+  // Related products state
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
+  const relatedScrollRef = useRef(null);
   
   // Location states
   const [buyerLocation, setBuyerLocation] = useState(null);
@@ -117,10 +162,16 @@ const ProductDetail = () => {
     }
   }, [product, buyerLocation]);
 
+  // Fetch related products ONLY when product is fully loaded
+  useEffect(() => {
+    if (product && !loading) {
+      fetchRelatedProducts();
+    }
+  }, [product, loading]);
+
   const fetchProduct = async () => {
     setLoading(true);
     try {
-      // Add location to the request if available
       let url = `${API_BASE_URL}/products/${id}`;
       if (buyerLocation) {
         url += `?city=${encodeURIComponent(buyerLocation.city)}&state=${encodeURIComponent(buyerLocation.state)}`;
@@ -142,10 +193,39 @@ const ProductDetail = () => {
     }
   };
 
+  const fetchRelatedProducts = async () => {
+    setLoadingRelated(true);
+    try {
+      // Get the first category only (primary category)
+      const primaryCategory = product.categories?.[0] || product.category;
+      
+      if (!primaryCategory) {
+        console.log('No category found for related products');
+        setLoadingRelated(false);
+        return;
+      }
+      
+      // Fetch products from the same primary category, limit to 20, exclude current product
+      const response = await fetch(
+        `${API_BASE_URL}/products?category=${encodeURIComponent(primaryCategory)}&limit=20&page=1`
+      );
+      const data = await response.json();
+      
+      if (data.success && !data.groupedByCategory) {
+        // Filter out current product and limit to 10
+        const filtered = data.data.filter(p => p._id !== product._id).slice(0, 10);
+        setRelatedProducts(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching related products:', error);
+    } finally {
+      setLoadingRelated(false);
+    }
+  };
+
   const calculateDeliveryPrice = () => {
     if (!product || !buyerLocation) return;
     
-    // Check if product has specific delivery zone for this location
     const deliveryZone = product.deliveryZones?.find(
       zone => zone.city?.toLowerCase() === buyerLocation.city?.toLowerCase() && 
               zone.state?.toLowerCase() === buyerLocation.state?.toLowerCase()
@@ -154,7 +234,6 @@ const ProductDetail = () => {
     if (deliveryZone && deliveryZone.price !== undefined) {
       setDeliveryPrice(deliveryZone.price);
     } else if (product.shipping?.cost !== undefined) {
-      // Fallback to default shipping cost
       setDeliveryPrice(product.shipping.cost || 0);
     } else {
       setDeliveryPrice(0);
@@ -228,6 +307,23 @@ const ProductDetail = () => {
     navigate('/cart');
   };
 
+  const scrollRelatedLeft = () => {
+    if (relatedScrollRef.current) {
+      relatedScrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRelatedRight = () => {
+    if (relatedScrollRef.current) {
+      relatedScrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+    }
+  };
+
+  const handleViewMoreRelated = () => {
+    const primaryCategory = product.categories?.[0] || product.category;
+    navigate(`/search?category=${encodeURIComponent(primaryCategory)}`);
+  };
+
   const getDescriptionLength = () => {
     if (!product?.description) return 0;
     const cleaned = cleanDescription(product.description);
@@ -291,12 +387,13 @@ const ProductDetail = () => {
   const currentPrice = getCurrentPrice();
   const currentStock = getCurrentStock();
   const isFreeShipping = product.shipping?.free || deliveryPrice === 0;
+  const primaryCategory = product.categories?.[0] || product.category;
 
   return (
     <div className="px-4 py-4">
       <div className="max-w-7xl mx-auto">
 
-        <div className="bg-white border border-gray-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Image Gallery */}
           <div>
             <div className="border border-gray-200 mb-4 bg-white">
@@ -422,7 +519,7 @@ const ProductDetail = () => {
               </div>
             )}
             
-            {/* Shipping Info - Now shows location-based delivery price */}
+            {/* Shipping Info */}
             <div className="border-t border-gray-200 pt-4 space-y-3">
               <div className="flex items-center gap-3">
                 <Truck className="w-5 h-5 text-gray-500" />
@@ -461,7 +558,7 @@ const ProductDetail = () => {
           </div>
         </div>
         
-        {/* Product Description with Expand/Collapse */}
+        {/* Product Description */}
         <div className="bg-white p-4 mt-4 border-t border-gray-200">
           <h2 className="text-xl font-bold mb-4">Product Description</h2>
           <div className="prose max-w-none">
@@ -492,6 +589,59 @@ const ProductDetail = () => {
             </div>
           </div>
         </div>
+        
+        {/* Buyers Also Viewed Section - Only shows when product is loaded and related products exist */}
+        {!loading && !loadingRelated && relatedProducts.length > 0 && (
+          <div className="mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Buyers Also Viewed</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={scrollRelatedLeft}
+                  className="p-1.5 border border-gray-300 rounded-lg hover:border-orange-500 hover:text-orange-500 transition"
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={scrollRelatedRight}
+                  className="p-1.5 border border-gray-300 rounded-lg hover:border-orange-500 hover:text-orange-500 transition"
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div
+              ref={relatedScrollRef}
+              className="flex overflow-x-auto gap-4 pb-3 scrollbar-hide"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {relatedProducts.map((relatedProduct) => (
+                <RelatedProductCard
+                  key={relatedProduct._id}
+                  product={relatedProduct}
+                  formatPrice={formatPrice}
+                  navigate={navigate}
+                />
+              ))}
+            </div>
+            
+            <div className="text-center mt-4">
+              <button
+                onClick={handleViewMoreRelated}
+                className="text-orange-500 hover:text-orange-600 font-medium inline-flex items-center gap-1"
+              >
+                View More in {primaryCategory}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Loading related products skeleton - Only shows when product is loaded but related products are fetching */}
+        {!loading && loadingRelated && <RelatedProductsSkeleton />}
         
         {/* Product Details Table */}
         {(product.brand || product.sku || product.weight || (product.dimensions?.length && product.dimensions.length !== '')) && (
@@ -546,7 +696,7 @@ const ProductDetail = () => {
         
         {/* Tags */}
         {product.tags && product.tags.length > 0 && (
-          <div className="bg-white p-4 mt-8 border-t border-gray-200">
+          <div className="bg-white p-4 mt-4 border-t border-gray-200">
             <h2 className="text-xl font-bold mb-4">Tags</h2>
             <div className="flex flex-wrap gap-2">
               {product.tags.map((tag, index) => (

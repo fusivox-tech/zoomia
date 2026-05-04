@@ -7,7 +7,7 @@ import axios from 'axios';
 import API_BASE_URL from '../config';
 
 const PaymentPage = () => {
-  const { user, getAuthHeaders } = useData();
+  const { user, getAuthHeaders, showError } = useData();
   const [processing, setProcessing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showProfileWarning, setShowProfileWarning] = useState(false);
@@ -119,12 +119,12 @@ const initializePaystackPayment = async () => {
   }
   
   if (!selectedAddressId) {
-    alert('Please select a delivery address');
+    showError('Please select a delivery address');
     return;
   }
   
   if (validatedItems.length === 0) {
-    alert('No valid items in cart');
+    showError('No valid items in cart');
     return;
   }
   
@@ -163,12 +163,12 @@ const initializePaystackPayment = async () => {
         window.location.href = response.data.data.authorization_url;
       }, 1500);
     } else {
-      alert(response.data.message || 'Failed to initialize payment');
+      showError(response.data.message || 'Failed to initialize payment');
       setProcessing(false);
     }
   } catch (error) {
     console.error('Payment initialization error:', error);
-    alert(error.response?.data?.message || 'Failed to initialize payment. Please try again.');
+    showError(error.response?.data?.message || 'Failed to initialize payment. Please try again.');
     setProcessing(false);
   }
 };

@@ -1,9 +1,9 @@
-// App.jsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; 
 import { useState, useEffect } from 'react';
-import { DataProvider } from './contexts/DataContext';
+import { DataProvider, useData } from './contexts/DataContext';
 import NavBar from './components/NavBar';
 import Menu from './components/Menu';
+import Footer from './components/Footer'; 
 import Seller from './components/Seller';
 import LoginPage from './components/LoginPage';
 import HomePage from './components/HomePage';
@@ -11,27 +11,34 @@ import SearchPage from './components/SearchPage';
 import ProductDetail from './components/ProductDetail';
 import CartPage from './components/CartPage';
 import PaymentPage from './components/PaymentPage';
-import { useData } from './contexts/DataContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import PaymentVerification from './components/PaymentVerification';
 import ProfilePage from './components/ProfilePage';
 import LocationWelcomeModal from './components/LocationWelcomeModal';
+import Alert from './components/Alert';
+import { useLocation } from 'react-router-dom';
+
+const useScrollToTop = () => {
+  const { pathname, search } = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname, search]);
+};
 
 const AppContent = () => {
+  useScrollToTop();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { handleLoginSuccess } = useData();
+  const { handleLoginSuccess, alert, hideAlert } = useData();
 
   useEffect(() => {
-    // Check if location has been selected before
     const locationSelected = localStorage.getItem('locationSelected');
     const selectedCity = localStorage.getItem('buyerCity');
     const selectedState = localStorage.getItem('buyerState');
     
-    // If location hasn't been selected or was skipped, show modal
     if (!locationSelected || locationSelected === 'skipped' || !selectedCity || !selectedState) {
-      // Small delay to ensure everything is loaded
       setTimeout(() => {
         setShowLocationModal(true);
         setIsLoading(false);
@@ -45,12 +52,10 @@ const AppContent = () => {
     setShowLocationModal(false);
     
     if (!skipped && state && city) {
-      // Refresh page to load products for the selected location
       window.location.reload();
     }
   };
 
-  // Show nothing while checking location
   if (isLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-gray-50">
@@ -63,24 +68,41 @@ const AppContent = () => {
   }
 
   return (
-    <div className="h-screen w-full flex flex-col items-center bg-gray-50 overflow-y-auto">
+    <div className="min-h-screen w-full flex flex-col bg-gray-50">
+      {/* Alert Component */}
+      {alert && (
+        <Alert
+          type={alert.type}
+          message={alert.message}
+          onClose={hideAlert}
+          duration={alert.duration}
+        />
+      )}
+      
       <NavBar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       <Menu isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={
-          <GoogleOAuthProvider clientId="531388924549-sph32gdm0rhbh3ns5kt27f3rb357dtnf.apps.googleusercontent.com">
-            <LoginPage onLoginSuccess={handleLoginSuccess} />
-          </GoogleOAuthProvider>
-        } />
-        <Route path="/seller" element={<Seller />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/product/:id" element={<ProductDetail />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/payment" element={<PaymentPage />} />
-        <Route path="/payment/verify" element={<PaymentVerification />} />
-        <Route path="/profile" element={<ProfilePage />} />
-      </Routes>
+      
+      {/* Main Content - grows to push footer down */}
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={
+            <GoogleOAuthProvider clientId="531388924549-sph32gdm0rhbh3ns5kt27f3rb357dtnf.apps.googleusercontent.com">
+              <LoginPage onLoginSuccess={handleLoginSuccess} />
+            </GoogleOAuthProvider>
+          } />
+          <Route path="/seller" element={<Seller />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/payment/verify" element={<PaymentVerification />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Routes>
+      </main>
+      
+      {/* Footer - appears at bottom */}
+      <Footer />
       
       {/* Location Welcome Modal */}
       {showLocationModal && (

@@ -1,4 +1,4 @@
-// CartPage.jsx - Pass calculated delivery fees to checkout
+// CartPage.jsx - With clickable product images
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -30,7 +30,7 @@ const CartSkeleton = () => (
 );
 
 const CartPage = () => {
-  const { cartItems, updateCartQuantity, removeFromCart, clearCart, user, loading } = useData();
+  const { cartItems, updateCartQuantity, removeFromCart, clearCart, user, loading, showError } = useData();
   const [localCartItems, setLocalCartItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState({});
   const [selectAll, setSelectAll] = useState(true);
@@ -86,50 +86,54 @@ const CartPage = () => {
     setSelectedItems(newSelected);
   };
 
-const handleProceedToCheckout = () => {
-  const token = localStorage.getItem('token');
-  if (!token || !user) {
-    localStorage.setItem('redirectAfterLogin', '/payment');
-    navigate('/login');
-    return;
-  }
-  
-  const hasSelectedItems = Object.values(selectedItems).some(value => value === true);
-  if (!hasSelectedItems) {
-    alert('Please select at least one item to checkout');
-    return;
-  }
-  
-  const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
-  
-  const itemsForCheckout = selectedCartItems.map(item => {
-    const itemShippingCost = item.shipping?.free ? 0 : (item.shipping?.cost || 0);
-    const totalShipping = itemShippingCost * item.quantity;
-    const totalProductPrice = item.price * item.quantity;
+  const handleProductClick = (productId) => {
+    navigate(`/product/${productId}`);
+  };
+
+  const handleProceedToCheckout = () => {
+    const token = localStorage.getItem('token');
+    if (!token || !user) {
+      localStorage.setItem('redirectAfterLogin', '/payment');
+      navigate('/login');
+      return;
+    }
     
-    return {
-      ...item,
-      calculatedShipping: totalShipping,
-      calculatedSubtotal: totalProductPrice,
-      calculatedTotal: totalProductPrice + totalShipping,
-      perItemShipping: itemShippingCost,
-    };
-  });
-  
-  const overallSubtotal = itemsForCheckout.reduce((sum, item) => sum + item.calculatedSubtotal, 0);
-  const overallShipping = itemsForCheckout.reduce((sum, item) => sum + item.calculatedShipping, 0);
-  const overallTotal = overallSubtotal + overallShipping;
-  
-  localStorage.setItem('selectedCartItems', JSON.stringify(itemsForCheckout));
-  localStorage.setItem('checkoutTotals', JSON.stringify({
-    subtotal: overallSubtotal,
-    shipping: overallShipping,
-    total: overallTotal,
-    itemCount: itemsForCheckout.reduce((sum, item) => sum + item.quantity, 0)
-  }));
-  
-  navigate('/payment');
-};
+    const hasSelectedItems = Object.values(selectedItems).some(value => value === true);
+    if (!hasSelectedItems) {
+      showError('Please select at least one item to checkout');
+      return;
+    }
+    
+    const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
+    
+    const itemsForCheckout = selectedCartItems.map(item => {
+      const itemShippingCost = item.shipping?.free ? 0 : (item.shipping?.cost || 0);
+      const totalShipping = itemShippingCost * item.quantity;
+      const totalProductPrice = item.price * item.quantity;
+      
+      return {
+        ...item,
+        calculatedShipping: totalShipping,
+        calculatedSubtotal: totalProductPrice,
+        calculatedTotal: totalProductPrice + totalShipping,
+        perItemShipping: itemShippingCost,
+      };
+    });
+    
+    const overallSubtotal = itemsForCheckout.reduce((sum, item) => sum + item.calculatedSubtotal, 0);
+    const overallShipping = itemsForCheckout.reduce((sum, item) => sum + item.calculatedShipping, 0);
+    const overallTotal = overallSubtotal + overallShipping;
+    
+    localStorage.setItem('selectedCartItems', JSON.stringify(itemsForCheckout));
+    localStorage.setItem('checkoutTotals', JSON.stringify({
+      subtotal: overallSubtotal,
+      shipping: overallShipping,
+      total: overallTotal,
+      itemCount: itemsForCheckout.reduce((sum, item) => sum + item.quantity, 0)
+    }));
+    
+    navigate('/payment');
+  };
 
   const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
   
@@ -201,11 +205,25 @@ const handleProceedToCheckout = () => {
                         {selectedItems[index] ? <CheckSquare className="w-5 h-5 text-orange-500" /> : <Square className="w-5 h-5 text-gray-400" />}
                       </button>
                     </div>
-                    <div className="w-24 h-24 bg-gray-100 rounded-lg flex border border-gray-200 items-center justify-center flex-shrink-0">
-                      <img src={item.image || '/placeholder.png'} alt={item.title} className="w-full h-full object-cover rounded-lg" />
+                    {/* Clickable Product Image */}
+                    <div 
+                      className="w-24 h-24 bg-gray-100 rounded-lg flex border border-gray-200 items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition overflow-hidden"
+                      onClick={() => handleProductClick(item.id)}
+                    >
+                      <img 
+                        src={item.image || '/placeholder.png'} 
+                        alt={item.title} 
+                        className="w-full h-full object-cover rounded-lg hover:scale-105 transition duration-300"
+                      />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
+                      {/* Clickable Product Title */}
+                      <h3 
+                        className="font-semibold text-gray-900 mb-1 cursor-pointer hover:text-orange-500 transition"
+                        onClick={() => handleProductClick(item.id)}
+                      >
+                        {item.title}
+                      </h3>
                       {item.variant && <p className="text-sm text-gray-500 mb-2">Variant: {item.variant.name}</p>}
                       <p className="text-orange-600 font-bold">{formatPrice(item.price)}</p>
                       {item.shipping && !item.shipping.free && item.shipping.cost > 0 && (
@@ -214,15 +232,26 @@ const handleProceedToCheckout = () => {
                       {item.shipping?.free && <p className="text-xs text-green-600 mt-1">Free shipping</p>}
                       <div className="flex items-center gap-4 mt-3">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleUpdateQuantity(index, item.quantity - 1)} className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50" disabled={!selectedItems[index]}>
+                          <button 
+                            onClick={() => handleUpdateQuantity(index, item.quantity - 1)} 
+                            className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50" 
+                            disabled={!selectedItems[index]}
+                          >
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className="w-8 text-center text-gray-700">{item.quantity}</span>
-                          <button onClick={() => handleUpdateQuantity(index, item.quantity + 1)} className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50" disabled={!selectedItems[index]}>
+                          <button 
+                            onClick={() => handleUpdateQuantity(index, item.quantity + 1)} 
+                            className="p-1 border border-gray-300 rounded hover:border-orange-500 transition disabled:opacity-50" 
+                            disabled={!selectedItems[index]}
+                          >
                             <Plus className="w-3 h-3" />
                           </button>
                         </div>
-                        <button onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-600 flex items-center gap-1 text-sm transition">
+                        <button 
+                          onClick={() => handleRemoveItem(index)} 
+                          className="text-red-500 hover:text-red-600 flex items-center gap-1 text-sm transition"
+                        >
                           <Trash2 className="w-4 h-4" /> Remove
                         </button>
                       </div>
@@ -258,11 +287,25 @@ const handleProceedToCheckout = () => {
             ) : (
               <>
                 <div className="space-y-3 mb-4 pb-4 border-b border-gray-200">
-                  <div className="flex justify-between text-gray-600"><span>Subtotal</span><span className="font-medium">{formatPrice(subtotal)}</span></div>
-                  <div className="flex justify-between text-gray-600"><span>Shipping</span><span className="font-medium">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span></div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-medium">{formatPrice(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Shipping</span>
+                    <span className="font-medium">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xl font-bold mb-6"><span>Total</span><span className="text-orange-600">{formatPrice(total)}</span></div>
-                <button onClick={handleProceedToCheckout} className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition border-0">Proceed to Checkout</button>
+                <div className="flex justify-between text-xl font-bold mb-6">
+                  <span>Total</span>
+                  <span className="text-orange-600">{formatPrice(total)}</span>
+                </div>
+                <button 
+                  onClick={handleProceedToCheckout} 
+                  className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition border-0"
+                >
+                  Proceed to Checkout
+                </button>
               </>
             )}
             {!user && <p className="text-xs text-center mt-4 text-orange-600">Sign in to save your cart across devices!</p>}

@@ -7,6 +7,7 @@ import SellerDeliveryZones from './SellerDeliveryZones';
 import { Store, Package, Truck, Shield, Percent, Users, TrendingUp, ArrowRight, CheckCircle } from 'lucide-react';
 
 const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled, onUpdateStatus }) => {
+  const { showSuccess, showError } = useData(); 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -53,12 +54,12 @@ const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCance
       );
       
       if (response.data.success) {
-        alert(response.data.message);
+        showSuccess(response.data.message);
         if (onOrderCancelled) onOrderCancelled();
         setShowCancelModal(false);
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to cancel order');
+      showError(error.response?.data?.message || 'Failed to cancel order');
     } finally {
       setCancelling(false);
     }
@@ -714,7 +715,7 @@ const ProductListingModal = ({
 };
 
 const Seller = () => {
-  const { user } = useData();
+  const { user, showError, showSuccess } = useData();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetchingListings, setFetchingListings] = useState(false);
@@ -763,7 +764,6 @@ const Seller = () => {
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [customCategory, setCustomCategory] = useState('');
-  const [message, setMessage] = useState({ type: '', text: '' });
   const [updatingOrderStatus, setUpdatingOrderStatus] = useState(false);
   const [orderStatus, setOrderStatus] = useState('');
   const [trackingInfo, setTrackingInfo] = useState({
@@ -811,9 +811,9 @@ const Seller = () => {
         if (!response.data.canSell) {
           const missingFieldsList = response.data.missingFields.join(', ');
           if (response.data.missingFields.includes('Bank Account')) {
-            alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.\n\nBank Account is required to receive payouts for your sales.`);
+            showError(`Please add your ${missingFieldsList} in your profile before creating a product listing.\n\nBank Account is required to receive payouts for your sales.`);
           } else {
-            alert(`Please add your ${missingFieldsList} in your profile before creating a product listing.`);
+            showError(`Please add your ${missingFieldsList} in your profile before creating a product listing.`);
           }
           navigate('/profile');
           return false;
@@ -823,7 +823,7 @@ const Seller = () => {
       return false;
     } catch (error) {
       console.error('Error checking seller eligibility:', error);
-      alert('Unable to verify seller information. Please try again.');
+      showError('Unable to verify seller information. Please try again.');
       return false;
     }
   };
@@ -896,7 +896,7 @@ const Seller = () => {
     const files = Array.from(e.target.files);
     const newImages = [...selectedImages, ...files];
     if (newImages.length > 10) {
-      setMessage({ type: 'error', text: 'Maximum 10 images allowed' });
+      showError('Maximum 10 images allowed');
       return;
     }
     setSelectedImages(newImages);
@@ -967,11 +967,10 @@ const Seller = () => {
 const handleSubmit = async (e) => {
   e.preventDefault();
   setLoading(true);
-  setMessage({ type: '', text: '' });
 
   // Validate all required fields including categories
   if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
-    setMessage({ type: 'error', text: 'Please fill in all required fields and select at least one category' });
+    showError('Please fill in all required fields and select at least one category');
     setLoading(false);
     return;
   }
@@ -979,14 +978,14 @@ const handleSubmit = async (e) => {
   // Validate that at least one image is uploaded
   const totalImages = formData.images.length + selectedImages.length;
   if (totalImages === 0) {
-    setMessage({ type: 'error', text: 'Please upload at least one product image' });
+    showError('Please upload at least one product image');
     setLoading(false);
     return;
   }
 
   // Validate that at least one delivery zone is added
   if (formData.deliveryZones.length === 0) {
-    setMessage({ type: 'error', text: 'Please add at least one delivery zone for your product' });
+    showError('Please add at least one delivery zone for your product');
     setLoading(false);
     return;
   }
@@ -994,7 +993,7 @@ const handleSubmit = async (e) => {
   // Validate that all delivery zones have prices set
   const zonesWithoutPrice = formData.deliveryZones.filter(zone => !zone.price || zone.price <= 0);
   if (zonesWithoutPrice.length > 0) {
-    setMessage({ type: 'error', text: `Please set delivery prices for all zones. ${zonesWithoutPrice.length} zone(s) missing prices.` });
+    showError(`Please set delivery prices for all zones. ${zonesWithoutPrice.length} zone(s) missing prices.`);
     setLoading(false);
     return;
   }
@@ -1030,19 +1029,18 @@ const handleSubmit = async (e) => {
     }
 
     if (response.data.success) {
-      setMessage({ type: 'success', text: editingProduct ? 'Product updated successfully!' : 'Product listed successfully!' });
+      showSuccess(editingProduct ? 'Product updated successfully!' : 'Product listed successfully!');
       resetForm();
       await fetchSellerProducts();
       setShowListingModal(false);
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }
   } catch (error) {
     console.error('Error saving product:', error);
     if (error.response?.status === 401) {
-      setMessage({ type: 'error', text: 'Session expired. Please login again.' });
+      showError('Session expired. Please login again.');
       setTimeout(() => navigate('/login'), 2000);
     } else {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to save product' });
+      showError(error.response?.data?.message || 'Failed to save product');
     }
   } finally {
     setLoading(false);
@@ -1110,13 +1108,12 @@ const handleSubmit = async (e) => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.data.success) {
-        setMessage({ type: 'success', text: 'Product deleted successfully!' });
+        showSuccess('Product deleted successfully!');
         await fetchSellerProducts();
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       }
     } catch (error) {
       console.error('Error deleting product:', error);
-      setMessage({ type: 'error', text: 'Failed to delete product' });
+      showError('Failed to delete product');
     }
   };
 
@@ -1131,15 +1128,14 @@ const handleSubmit = async (e) => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.data.success) {
-        setMessage({ type: 'success', text: `Order status updated to ${status}` });
+        showSuccess(`Order status updated to ${status}`);
         await fetchSellerOrders();
         setShowOrderModal(false);
         setSelectedOrder(null);
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       }
     } catch (error) {
       console.error('Error updating order status:', error);
-      setMessage({ type: 'error', text: 'Failed to update order status' });
+      showError('Failed to update order status');
     } finally {
       setUpdatingOrderStatus(false);
     }
@@ -1363,15 +1359,6 @@ const handleSubmit = async (e) => {
         <h1 className="text-3xl font-bold text-gray-900">Seller Dashboard</h1>
         <p className="text-gray-600">Manage your inventory and orders</p>
       </div>
-
-      {message.text && (
-        <div className={`mb-6 p-4 rounded-lg ${
-          message.type === 'success' ? 'bg-green-100 text-green-700 border border-green-200' : 
-          'bg-red-100 text-red-700 border border-red-200'
-        }`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
         <div className="bg-white border border-gray-200 rounded-xl p-6">
