@@ -1,4 +1,4 @@
-// CartPage.jsx - With clickable product images
+// CartPage.jsx - With product name limited to 2 lines
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -205,7 +205,6 @@ const CartPage = () => {
                         {selectedItems[index] ? <CheckSquare className="w-5 h-5 text-orange-500" /> : <Square className="w-5 h-5 text-gray-400" />}
                       </button>
                     </div>
-                    {/* Clickable Product Image */}
                     <div 
                       className="w-24 h-24 bg-gray-100 rounded-lg flex border border-gray-200 items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition overflow-hidden"
                       onClick={() => handleProductClick(item.id)}
@@ -217,9 +216,9 @@ const CartPage = () => {
                       />
                     </div>
                     <div className="flex-1">
-                      {/* Clickable Product Title */}
+                      {/* Product Title with line-clamp-2 to limit to 2 lines */}
                       <h3 
-                        className="font-semibold text-gray-900 mb-1 cursor-pointer hover:text-orange-500 transition"
+                        className="font-semibold text-gray-900 mb-1 cursor-pointer hover:text-orange-500 transition line-clamp-2"
                         onClick={() => handleProductClick(item.id)}
                       >
                         {item.title}
