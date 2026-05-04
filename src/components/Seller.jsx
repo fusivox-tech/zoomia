@@ -969,7 +969,7 @@ const handleSubmit = async (e) => {
   setLoading(true);
   setMessage({ type: '', text: '' });
 
-  // Validate all required fields including images
+  // Validate all required fields including categories
   if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
     setMessage({ type: 'error', text: 'Please fill in all required fields and select at least one category' });
     setLoading(false);
@@ -980,6 +980,21 @@ const handleSubmit = async (e) => {
   const totalImages = formData.images.length + selectedImages.length;
   if (totalImages === 0) {
     setMessage({ type: 'error', text: 'Please upload at least one product image' });
+    setLoading(false);
+    return;
+  }
+
+  // Validate that at least one delivery zone is added
+  if (formData.deliveryZones.length === 0) {
+    setMessage({ type: 'error', text: 'Please add at least one delivery zone for your product' });
+    setLoading(false);
+    return;
+  }
+
+  // Validate that all delivery zones have prices set
+  const zonesWithoutPrice = formData.deliveryZones.filter(zone => !zone.price || zone.price <= 0);
+  if (zonesWithoutPrice.length > 0) {
+    setMessage({ type: 'error', text: `Please set delivery prices for all zones. ${zonesWithoutPrice.length} zone(s) missing prices.` });
     setLoading(false);
     return;
   }
