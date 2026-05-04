@@ -565,35 +565,55 @@ const ProductListingModal = ({
               </div>
             )}
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {editingProduct ? 'Add New Images' : 'Product Images'}
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={onImageUpload}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-              <p className="text-xs text-gray-500 mt-1">PNG, JPG, JPEG up to 5MB each (Max 10 images)</p>
-              {imagePreviews.length > 0 && (
-                <div className="mt-2 flex gap-2 flex-wrap">
-                  {imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative">
-                      <img src={preview} alt="Preview" className="w-16 h-16 object-cover rounded" />
-                      <button
-                        type="button"
-                        onClick={() => onRemoveImage(index)}
-                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    {editingProduct ? 'Add New Images' : 'Product Images'} <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="file"
+    accept="image/*"
+    multiple
+    onChange={onImageUpload}
+    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+  />
+  <p className="text-xs text-gray-500 mt-1">PNG, JPG, JPEG up to 5MB each (Max 10 images)</p>
+  
+  {/* Show warning if no images */}
+  {!editingProduct && formData.images.length === 0 && imagePreviews.length === 0 && (
+    <p className="text-xs text-red-500 mt-1">⚠️ Please upload at least one product image</p>
+  )}
+  
+  {imagePreviews.length > 0 && (
+    <div className="mt-2 flex gap-2 flex-wrap">
+      {imagePreviews.map((preview, index) => (
+        <div key={index} className="relative">
+          <img src={preview} alt="Preview" className="w-16 h-16 object-cover rounded" />
+          <button
+            type="button"
+            onClick={() => onRemoveImage(index)}
+            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  )}
+  
+  {/* Show existing images for edit mode */}
+  {editingProduct && formData.images.length > 0 && imagePreviews.length === 0 && (
+    <div className="mt-2">
+      <p className="text-xs text-gray-500 mb-1">Current images:</p>
+      <div className="flex gap-2 flex-wrap">
+        {formData.images.map((img, index) => (
+          <div key={index} className="relative">
+            <img src={img} alt={`Product ${index}`} className="w-16 h-16 object-cover rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
@@ -944,66 +964,75 @@ const Seller = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage({ type: '', text: '' });
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setMessage({ type: '', text: '' });
 
-    if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
-      setMessage({ type: 'error', text: 'Please fill in all required fields and select at least one category' });
-      setLoading(false);
-      return;
+  // Validate all required fields including images
+  if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
+    setMessage({ type: 'error', text: 'Please fill in all required fields and select at least one category' });
+    setLoading(false);
+    return;
+  }
+
+  // Validate that at least one image is uploaded
+  const totalImages = formData.images.length + selectedImages.length;
+  if (totalImages === 0) {
+    setMessage({ type: 'error', text: 'Please upload at least one product image' });
+    setLoading(false);
+    return;
+  }
+
+  try {
+    let uploadedImageUrls = [];
+    if (selectedImages.length > 0) {
+      uploadedImageUrls = await uploadImages();
     }
 
-    try {
-      let uploadedImageUrls = [];
-      if (selectedImages.length > 0) {
-        uploadedImageUrls = await uploadImages();
-      }
+    const productData = {
+      ...formData,
+      sellerId: user._id,
+      sellerName: user.businessName || user.fullName,
+      sellerEmail: user.email,
+      images: [...formData.images, ...uploadedImageUrls],
+      sellerPhone: user.phone,
+      category: formData.categories[0],
+      categories: formData.categories
+    };
 
-      const productData = {
-        ...formData,
-        sellerId: user._id,
-        sellerName: user.businessName || user.fullName,
-        sellerEmail: user.email,
-        images: [...formData.images, ...uploadedImageUrls],
-        sellerPhone: user.phone,
-        category: formData.categories[0],
-        categories: formData.categories
-      };
-
-      const token = getAuthToken();
-      let response;
-      
-      if (editingProduct) {
-        response = await axios.put(`${API_BASE_URL}/products/${editingProduct._id}`, productData, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        });
-      } else {
-        response = await axios.post(`${API_BASE_URL}/products`, productData, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        });
-      }
-
-      if (response.data.success) {
-        setMessage({ type: 'success', text: editingProduct ? 'Product updated successfully!' : 'Product listed successfully!' });
-        resetForm();
-        await fetchSellerProducts();
-        setShowListingModal(false);
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-      }
-    } catch (error) {
-      console.error('Error saving product:', error);
-      if (error.response?.status === 401) {
-        setMessage({ type: 'error', text: 'Session expired. Please login again.' });
-        setTimeout(() => navigate('/login'), 2000);
-      } else {
-        setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to save product' });
-      }
-    } finally {
-      setLoading(false);
+    const token = getAuthToken();
+    let response;
+    
+    if (editingProduct) {
+      response = await axios.put(`${API_BASE_URL}/products/${editingProduct._id}`, productData, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+    } else {
+      response = await axios.post(`${API_BASE_URL}/products`, productData, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
     }
-  };
+
+    if (response.data.success) {
+      setMessage({ type: 'success', text: editingProduct ? 'Product updated successfully!' : 'Product listed successfully!' });
+      resetForm();
+      await fetchSellerProducts();
+      setShowListingModal(false);
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    }
+  } catch (error) {
+    console.error('Error saving product:', error);
+    if (error.response?.status === 401) {
+      setMessage({ type: 'error', text: 'Session expired. Please login again.' });
+      setTimeout(() => navigate('/login'), 2000);
+    } else {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to save product' });
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const resetForm = useCallback(() => {
     setFormData({
