@@ -1,4 +1,4 @@
-// HomePage.jsx - With randomized products in each section
+// HomePage.jsx - With fixed category distribution
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
@@ -28,7 +28,6 @@ const Banners = () => {
 
   return (
     <div className="relative">
-      {/* Left Scroll Button */}
       <button
         onClick={scrollLeft}
         className="absolute md:hidden left-0 top-1/2 transform -translate-y-1/2 bg-black/20 text-white rounded-full p-2 hover:bg-black/70 transition z-10 ml-2"
@@ -39,7 +38,6 @@ const Banners = () => {
         </svg>
       </button>
 
-      {/* Scrollable Images */}
       <div 
         ref={scrollRef}
         className="flex md:justify-between scrollbar-hide mb-4 gap-4 overflow-x-auto"
@@ -54,7 +52,6 @@ const Banners = () => {
         />
       </div>
 
-      {/* Right Scroll Button */}
       <button
         onClick={scrollRight}
         className="absolute md:hidden right-0 top-1/2 transform -translate-y-1/2 bg-black/20 text-white rounded-full p-2 hover:bg-black/70 transition z-10 mr-2"
@@ -69,13 +66,14 @@ const Banners = () => {
 };
 
 const HomePage = () => {
-  const { categoriesWithProducts, setCategoriesWithProducts, featuredProducts, setFeaturedProducts, loadingProducts: loading, setLoadingProducts: setLoading } = useData();
+  const { setCategoriesWithProducts, setFeaturedProducts, loadingProducts: loading, setLoadingProducts: setLoading } = useData();
+  const [categoriesWithProducts, setLocalCategoriesWithProducts] = useState([]);
+  const [featuredProducts, setLocalFeaturedProducts] = useState([]);
   const [hasLocation, setHasLocation] = useState(false);
   const [buyerLocation, setBuyerLocation] = useState(null);
   const navigate = useNavigate();
   const featuredScrollRef = useRef(null);
 
-  // Fisher-Yates shuffle algorithm
   const shuffleArray = (array) => {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -107,7 +105,7 @@ const HomePage = () => {
     try {
       const queryParams = new URLSearchParams({
         groupByCategory: 'true',
-        limit: '12'
+        limit: '50' // Fetch more products to properly distribute
       });
       
       if (city && state) {
@@ -119,22 +117,62 @@ const HomePage = () => {
       const data = await response.json();
       
       if (data.success && data.groupedByCategory) {
-        // Shuffle products within each category
-        const shuffledCategories = data.data.map(category => ({
-          ...category,
-          products: shuffleArray(category.products)
+        // Create a map to reorganize products by ALL their categories
+        const categoryMap = new Map();
+        const uniqueProductsMap = new Map(); // For featured section
+        
+        // Process each category group from the backend
+        data.data.forEach(categoryGroup => {
+          const backendCategory = categoryGroup.category;
+          
+          categoryGroup.products.forEach(product => {
+            // Get all categories for this product
+            const productCategories = product.categories && product.categories.length > 0 
+              ? product.categories 
+              : [backendCategory];
+            
+            // Add product to featured section (using Map to avoid duplicates)
+            if (!uniqueProductsMap.has(product._id)) {
+              uniqueProductsMap.set(product._id, product);
+            }
+            
+            // Add product to each of its categories
+            productCategories.forEach(cat => {
+              if (!categoryMap.has(cat)) {
+                categoryMap.set(cat, []);
+              }
+              
+              // Check if product already exists in this category
+              const existingProducts = categoryMap.get(cat);
+              const productExists = existingProducts.some(p => p._id === product._id);
+              
+              if (!productExists) {
+                existingProducts.push(product);
+              }
+            });
+          });
+        });
+        
+        // Convert map to array of categories with products
+        let allCategories = Array.from(categoryMap.entries()).map(([category, products]) => ({
+          category,
+          totalCount: products.length,
+          products: shuffleArray(products.slice(0, 12)) // Limit to 12 products per category
         }));
         
-        setCategoriesWithProducts(shuffledCategories);
+        // Sort categories by name or by product count
+        allCategories = allCategories.sort((a, b) => b.totalCount - a.totalCount);
         
-        // Extract and shuffle products for featured section
-        const allProducts = [];
-        shuffledCategories.forEach(category => {
-          allProducts.push(...category.products);
-        });
-        // Shuffle all products and take first 12
-        const shuffledAllProducts = shuffleArray(allProducts);
-        setFeaturedProducts(shuffledAllProducts.slice(0, 12));
+        setLocalCategoriesWithProducts(allCategories);
+        setCategoriesWithProducts(allCategories);
+        
+        // Set featured products (unique products, shuffled, limited to 12)
+        const uniqueProducts = Array.from(uniqueProductsMap.values());
+        const shuffledProducts = shuffleArray(uniqueProducts);
+        const featured = shuffledProducts.slice(0, 12);
+        
+        setLocalFeaturedProducts(featured);
+        setFeaturedProducts(featured);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -164,7 +202,6 @@ const HomePage = () => {
     }
   };
 
-  // Horizontal scroll product card (for featured section)
   const HorizontalProductCard = ({ product }) => (
     <div className="flex-shrink-0 w-[160px] md:w-[180px] cursor-pointer" onClick={() => navigate(`/product/${product._id}`)}>
       <div className="aspect-square border border-gray-200 bg-gray-100 flex items-center justify-center rounded-lg overflow-hidden">
@@ -181,7 +218,6 @@ const HomePage = () => {
     </div>
   );
 
-  // Grid product card (for category sections)
   const GridProductCard = ({ product }) => (
     <div className="w-full cursor-pointer" onClick={() => navigate(`/product/${product._id}`)}>
       <div className="aspect-square border border-gray-200 bg-gray-100 flex items-center justify-center rounded-lg overflow-hidden">
@@ -198,7 +234,6 @@ const HomePage = () => {
     </div>
   );
 
-  // Featured Section with horizontal scroll
   const FeaturedSection = () => (
     <section className="mb-4 border border-orange-400 bg-white p-4 rounded-lg">
       <div className="flex justify-between items-center mb-5">
@@ -235,31 +270,29 @@ const HomePage = () => {
     </section>
   );
 
-// Category Section with responsive grid and alternating borders
-const CategorySection = ({ category, products, index }) => (
-  <section className={`mb-4 border bg-white p-4 rounded-lg ${
-    index % 2 === 1 ? 'border-orange-400' : 'border-gray-200'
-  }`}>
-    <div className="flex justify-between items-center mb-5">
-      <h2 className="text-xl font-bold text-gray-900">{category}</h2>
-      <button
-        onClick={() => navigate(`/search?category=${encodeURIComponent(category)}`)}
-        className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
-      >
-        View All
-        <ArrowRight className="w-4 h-4" />
-      </button>
-    </div>
-    
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
-      {products.map((product) => (
-        <GridProductCard key={product._id} product={product} />
-      ))}
-    </div>
-  </section>
-);
+  const CategorySection = ({ category, products, index }) => (
+    <section className={`mb-4 border bg-white p-4 rounded-lg ${
+      index % 2 === 1 ? 'border-orange-400' : 'border-gray-200'
+    }`}>
+      <div className="flex justify-between items-center mb-5">
+        <h2 className="text-xl font-bold text-gray-900">{category}</h2>
+        <button
+          onClick={() => navigate(`/search?category=${encodeURIComponent(category)}`)}
+          className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+        >
+          View All
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
+        {products.map((product) => (
+          <GridProductCard key={product._id} product={product} />
+        ))}
+      </div>
+    </section>
+  );
 
-  // Skeleton loaders
   const HorizontalSkeleton = () => (
     <div className="flex-shrink-0 w-[160px] md:w-[180px] animate-pulse">
       <div className="aspect-square bg-gray-200 rounded-lg"></div>
@@ -301,9 +334,7 @@ const CategorySection = ({ category, products, index }) => (
           <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Navigation className="w-10 h-10 text-orange-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Welcome to Zoomia!
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Zoomia!</h2>
           <p className="text-gray-600 mb-4 max-w-md mx-auto">
             To see products available for delivery in your area, please select your delivery location.
           </p>
@@ -319,9 +350,7 @@ const CategorySection = ({ category, products, index }) => (
             <MapPin className="w-5 h-5" />
             Select Delivery Location
           </button>
-          <p className="text-xs text-gray-400 mt-4">
-            You can change your delivery location anytime from your profile page
-          </p>
+          <p className="text-xs text-gray-400 mt-4">You can change your delivery location anytime from your profile page</p>
         </div>
       </div>
     );
@@ -330,8 +359,6 @@ const CategorySection = ({ category, products, index }) => (
   if (loading) {
     return (
       <div className="w-full max-w-7xl mx-auto px-4 py-4">
-        
-        {/* Featured Section Skeleton */}
         <div className="mb-4 border border-gray-200 bg-white p-4 rounded-lg">
           <div className="flex justify-between items-center mb-5">
             <div className="h-7 w-40 bg-gray-200 rounded animate-pulse"></div>
@@ -346,8 +373,6 @@ const CategorySection = ({ category, products, index }) => (
             ))}
           </div>
         </div>
-        
-        {/* Category Sections Skeleton */}
         {[...Array(3)].map((_, i) => (
           <CategorySkeleton key={i} />
         ))}
@@ -363,9 +388,7 @@ const CategorySection = ({ category, products, index }) => (
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             No products available in {buyerLocation?.city}
           </h2>
-          <p className="text-gray-500 mb-4">
-            We couldn't find any sellers delivering to your location yet.
-          </p>
+          <p className="text-gray-500 mb-4">We couldn't find any sellers delivering to your location yet.</p>
           <button
             onClick={() => {
               localStorage.removeItem('buyerCity');
@@ -384,19 +407,16 @@ const CategorySection = ({ category, products, index }) => (
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-4">
-
       {featuredProducts.length > 0 && <FeaturedSection />}
-      
       <Banners />
-
       {categoriesWithProducts.map((categoryData, index) => (
-      <CategorySection
-        key={categoryData.category}
-        category={categoryData.category}
-        products={categoryData.products}
-        index={index}
-      />
-    ))}
+        <CategorySection
+          key={categoryData.category}
+          category={categoryData.category}
+          products={categoryData.products}
+          index={index}
+        />
+      ))}
     </div>
   );
 };
