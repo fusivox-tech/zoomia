@@ -564,7 +564,7 @@ const ProductDetail = () => {
         
         {/* Login reminder for non-logged in users */}
         {!user && (
-          <div className="bg-white p-4 mt-8 border border-blue-200 text-center">
+          <div className="bg-white p-4 mt-4 border border-blue-200 text-center">
             <p className="text-sm text-blue-700">
               Sign in to save your cart and access it from any device!
             </p>
