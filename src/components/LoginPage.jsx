@@ -65,7 +65,7 @@ const LoginPage = ({ onLoginSuccess }) => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center p-4">
+    <div className="bg-gray-50 flex justify-center p-4">
       <div className="max-w-md w-full md:bg-white p-8 mt-4">
         {/* Logo/Brand */}
         <div className="text-center mb-8 flex flex-col items-center">

@@ -404,7 +404,7 @@ const ProductDetail = () => {
               />
             </div>
             {product.images?.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="flex gap-2 justify-center overflow-x-auto">
                 {product.images.map((img, index) => (
                   <button
                     key={index}
