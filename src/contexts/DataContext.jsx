@@ -20,6 +20,9 @@ export const DataProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [cartItems, setCartItems] = useState([]);
   const [cartCount, setCartCount] = useState(0);
+  const [categoriesWithProducts, setCategoriesWithProducts] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   
   // Alert state
   const [alert, setAlert] = useState(null);
@@ -330,14 +333,19 @@ export const DataProvider = ({ children }) => {
     logout,
     refetchUser: fetchUserData,
     updateUserProfile,
-    // Alert functions
     alert,
     showAlert,
     hideAlert,
     showSuccess,
     showError,
     showWarning,
-    showInfo
+    showInfo,
+    categoriesWithProducts, 
+    setCategoriesWithProducts,
+    featuredProducts, 
+    setFeaturedProducts,
+    loadingProducts, 
+    setLoadingProducts
   };
   
   return (

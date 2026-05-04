@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 import { ChevronLeft, ChevronRight, MapPin, Navigation, ArrowRight } from 'lucide-react';
+import { useData } from '../contexts/DataContext';
 
 const Banners = () => {
   const scrollRef = useRef(null);
@@ -68,9 +69,7 @@ const Banners = () => {
 };
 
 const HomePage = () => {
-  const [categoriesWithProducts, setCategoriesWithProducts] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { categoriesWithProducts, setCategoriesWithProducts, featuredProducts, setFeaturedProducts, loadingProducts: loading, setLoadingProducts: setLoading } = useData();
   const [hasLocation, setHasLocation] = useState(false);
   const [buyerLocation, setBuyerLocation] = useState(null);
   const navigate = useNavigate();
@@ -94,7 +93,9 @@ const HomePage = () => {
     if (savedCity && savedState && locationSelected === 'true') {
       setHasLocation(true);
       setBuyerLocation({ city: savedCity, state: savedState });
-      fetchProductsByCategory(savedCity, savedState);
+      if (featuredProducts.length === 0) {
+        fetchProductsByCategory(savedCity, savedState);
+      }
     } else {
       setLoading(false);
       setHasLocation(false);
