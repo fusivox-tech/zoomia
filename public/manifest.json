@@ -8,7 +8,7 @@
   "scope": "/",
   "short_name": "Zoomia",
   "start_url": "/",
-  "theme_color": "#FB923C",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "icon.png",
