@@ -46,7 +46,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           
           // Redirect to previous page or home
           const from = location.state?.from?.pathname || '/';
-          navigate(from);
+          window.location.href = from;
         } else {
           setError(data.message || 'Login failed. Please try again.');
         }
