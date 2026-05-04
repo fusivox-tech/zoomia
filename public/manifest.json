@@ -1,0 +1,21 @@
+{
+  "background_color": "#ffffff",
+  "description": "Your one-stop shop for quality products at affordable prices. Shop with confidence and enjoy seamless delivery across Nigeria.",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Zoomia Mart",
+  "orientation": "portrait",
+  "scope": "/",
+  "short_name": "Zoomia",
+  "start_url": "/",
+  "theme_color": "#FB923C",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "en",
+}
