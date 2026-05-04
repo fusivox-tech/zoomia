@@ -754,13 +754,6 @@ const Seller = () => {
 
   const getAuthToken = () => localStorage.getItem('token');
 
-  useEffect(() => {
-    const token = getAuthToken();
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-  }, []);
-
   const categories = [
     'Appliances', 'Phones & Tablets', 'Health & Beauty', 'Home & Office', 
     'Electronics', 'Fashion', 'Supermarket', 'Computing', 'Baby Product', 'Gaming', 'Other'
