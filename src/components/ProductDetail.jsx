@@ -1,20 +1,16 @@
-// ProductDetail.jsx - With location-based shipping cost and "Buyers Also Viewed" section
+// ProductDetail.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 import { useData } from '../contexts/DataContext';
-import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp, MapPin, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Heart, Truck, Shield, RotateCcw, Star, Minus, Plus, Check, ChevronDown, ChevronUp, MapPin, Package, ChevronLeft, ChevronRight, Store } from 'lucide-react';
+import ProductReviews from './ProductReviews';
 
 // Skeleton Loader Components
 const ImageSkeleton = () => (
   <div className="animate-pulse">
     <div className="mb-4">
       <div className="w-full h-96 bg-gray-200"></div>
-    </div>
-    <div className="flex gap-2">
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className="w-20 h-20 bg-gray-200 border border-gray-200"></div>
-      ))}
     </div>
   </div>
 );
@@ -307,6 +303,18 @@ const ProductDetail = () => {
     navigate('/cart');
   };
 
+  const nextImage = () => {
+    if (product.images && product.images.length > 0) {
+      setSelectedImage((prev) => (prev + 1) % product.images.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (product.images && product.images.length > 0) {
+      setSelectedImage((prev) => (prev - 1 + product.images.length) % product.images.length);
+    }
+  };
+
   const scrollRelatedLeft = () => {
     if (relatedScrollRef.current) {
       relatedScrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
@@ -388,34 +396,70 @@ const ProductDetail = () => {
   const currentStock = getCurrentStock();
   const isFreeShipping = product.shipping?.free || deliveryPrice === 0;
   const primaryCategory = product.categories?.[0] || product.category;
+  const hasMultipleImages = product.images && product.images.length > 1;
 
   return (
     <div className="px-4 py-4">
       <div className="max-w-7xl mx-auto">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Image Gallery */}
-          <div>
-            <div className="border border-gray-200 mb-4 bg-white">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+          {/* Image Gallery with Chevron Navigation */}
+          <div className="relative">
+            <div className="border border-gray-200 bg-white relative">
               <img 
                 src={product.images?.[selectedImage] || '/placeholder.png'} 
                 alt={product.title}
                 className="w-full h-auto object-contain max-h-96"
               />
+              
+              {/* Left Chevron Button */}
+              {hasMultipleImages && (
+                <button
+                  onClick={prevImage}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 transition z-10"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+              
+              {/* Right Chevron Button */}
+              {hasMultipleImages && (
+                <button
+                  onClick={nextImage}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 transition z-10"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
             </div>
-            {product.images?.length > 1 && (
-              <div className="flex gap-2 justify-center overflow-x-auto">
-                {product.images.map((img, index) => (
+            
+            {/* Dot Indicators */}
+            {hasMultipleImages && (
+              <div className="flex justify-center gap-2 mt-3">
+                {product.images.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => setSelectedImage(index)}
-                    className={`w-20 h-20 border p-1 transition ${selectedImage === index ? 'border-orange-500' : 'border-gray-200 hover:border-gray-300'}`}
-                  >
-                    <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
-                  </button>
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      selectedImage === index 
+                        ? 'w-6 bg-orange-500' 
+                        : 'bg-gray-300 hover:bg-gray-400'
+                    }`}
+                    aria-label={`Go to image ${index + 1}`}
+                  />
                 ))}
               </div>
             )}
+
+<button
+  onClick={() => navigate(`/seller-store/${product.sellerId}`)}
+  className="flex w-full mt-4 items-center gap-2 px-3 py-2 text-sm bg-gray-100 justify-center text-gray-700 rounded-sm hover:bg-gray-200 transition"
+>
+  <Store className="w-4 h-4" />
+  Visit Seller's Store
+</button>
           </div>
 
           {/* Product Info */}
@@ -590,7 +634,7 @@ const ProductDetail = () => {
           </div>
         </div>
         
-        {/* Buyers Also Viewed Section - Only shows when product is loaded and related products exist */}
+        {/* Buyers Also Viewed Section */}
         {!loading && !loadingRelated && relatedProducts.length > 0 && (
           <div className="mt-8">
             <div className="flex justify-between items-center mb-4">
@@ -640,7 +684,7 @@ const ProductDetail = () => {
           </div>
         )}
         
-        {/* Loading related products skeleton - Only shows when product is loaded but related products are fetching */}
+        {/* Loading related products skeleton */}
         {!loading && loadingRelated && <RelatedProductsSkeleton />}
         
         {/* Product Details Table */}
@@ -711,6 +755,13 @@ const ProductDetail = () => {
             </div>
           </div>
         )}
+        
+<ProductReviews 
+  productId={product._id} 
+  onReviewCountChange={(count) => {
+    // Optionally update something when review count changes
+  }}
+/>
         
         {/* Login reminder for non-logged in users */}
         {!user && (

@@ -17,6 +17,7 @@ import ProfilePage from './components/ProfilePage';
 import LocationWelcomeModal from './components/LocationWelcomeModal';
 import Alert from './components/Alert';
 import { useLocation } from 'react-router-dom';
+import SellerStore from './components/SellerStore';
 
 const useScrollToTop = () => {
   const { pathname, search } = useLocation();
@@ -98,6 +99,7 @@ const AppContent = () => {
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/payment/verify" element={<PaymentVerification />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/seller-store/:sellerId" element={<SellerStore />} />
         </Routes>
       </main>
       

@@ -4,9 +4,11 @@ import { useData } from '../contexts/DataContext';
 import axios from 'axios';
 import API_BASE_URL from '../config';
 import { User, MapPin, Package, LogOut, Edit2, X, Navigation, Check, AlertCircle, CreditCard, Banknote, Trash2, Plus, Info, Eye, Shield } from 'lucide-react';
+import ReviewModal from './ReviewModal';
 
 // OrderCard Component - Handles individual order display and cancellation timer
 const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }) => {
+  const { showSuccess, showError } = useData();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -28,6 +30,50 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
   const sellerPhone = order.seller?.sellerPhone || order.sellerPhone;
   const sellerEmail = order.seller?.sellerEmail || order.sellerEmail;
   const sellerProfileImage = order.seller?.sellerProfileImage;
+  
+const [showProductReviewModal, setShowProductReviewModal] = useState(false);
+const [selectedProductForReview, setSelectedProductForReview] = useState(null);
+const [productReviews, setProductReviews] = useState({});
+const [showSellerReviewModal, setShowSellerReviewModal] = useState(false);
+const [hasSellerReview, setHasSellerReview] = useState(false);
+const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+// Check for existing reviews on mount
+useEffect(() => {
+  if (orderStatus === 'delivered' && order.deliveryConfirmed) {
+    checkExistingReviews();
+  }
+}, [order._id, orderStatus, refreshTrigger]);
+
+const checkExistingReviews = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    // Check product reviews for each product in the order
+    const productReviewStatus = {};
+    for (const item of orderItems) {
+      const productReviewRes = await axios.get(
+        `${API_BASE_URL}/reviews/order/${order._id}/product/${item.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (productReviewRes.data.success && productReviewRes.data.data) {
+        productReviewStatus[item.id] = true;
+      }
+    }
+    setProductReviews(productReviewStatus);
+    
+    // Check seller review
+    const sellerReviewRes = await axios.get(
+      `${API_BASE_URL}/reviews/order/${order._id}/seller`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (sellerReviewRes.data.success && sellerReviewRes.data.data) {
+      setHasSellerReview(true);
+    }
+  } catch (error) {
+    console.error('Error checking reviews:', error);
+  }
+};
   
   // Timer effect
   useEffect(() => {
@@ -180,21 +226,8 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
             </div>
           </div>
           
-          {/* Delivery Address */}
-          {order.deliveryAddress && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                Delivery Address
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
-              </p>
-            </div>
-          )}
-          
           {/* Call Seller Button */}
-          {sellerPhone && orderStatus !== 'cancelled' && (
+          {sellerPhone && orderStatus !== 'delivered' && orderStatus !== 'cancelled' && (
             <div className="mt-4">
               <a
                 href={`tel:${sellerPhone}`}
@@ -249,7 +282,7 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
                 );
                 if (response.data.success) {
                   showSuccess(response.data.message);
-                  onOrderCancelled();
+                  window.location.reload();
                 }
               } catch (error) {
                 showError(error.response?.data?.message || 'Failed to confirm delivery');
@@ -296,16 +329,6 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
     </div>
   </div>
 )}
-          
-{orderStatus === 'delivered' && order.deliveryConfirmed && (
-  <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-    <div className="flex items-center gap-2">
-      <Check className="w-5 h-5 text-green-600" />
-      <p className="text-sm text-green-700 font-medium">Delivery Confirmed</p>
-    </div>
-    <p className="text-xs text-green-600 mt-1">Thank you for confirming your delivery.</p>
-  </div>
-)}
 
 {orderStatus === 'delivered' && order.deliveryDisputed && (
   <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
@@ -315,6 +338,79 @@ const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }
     </div>
     <p className="text-xs text-red-600 mt-1">Admin has been notified and will review your case.</p>
   </div>
+)}
+
+{orderStatus === 'delivered' && (order.deliveryDisputed || order.deliveryConfirmed) && (
+  <>
+    {/* Product Reviews - One button per product */}
+    <div className="mt-4">
+      <p className="text-sm font-medium text-gray-700 mb-2">Rate Products:</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {orderItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => {
+              setSelectedProductForReview(item);
+              setShowProductReviewModal(true);
+            }}
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium flex items-center justify-between"
+          >
+            <span className="truncate flex-1 text-left">{item.title}</span>
+            <span className="ml-2 text-xs">
+              {productReviews[item.id] ? 'Edit' : 'Review'}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+    
+    {/* Seller Review Button */}
+    <div className="mt-3">
+      <button
+        onClick={() => setShowSellerReviewModal(true)}
+        className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium"
+      >
+        {hasSellerReview ? 'Edit Seller Review' : 'Review Seller'}
+      </button>
+    </div>
+    
+    {/* Product Review Modal */}
+    <ReviewModal
+      isOpen={showProductReviewModal}
+      onClose={() => {
+        setShowProductReviewModal(false);
+        setSelectedProductForReview(null);
+      }}
+      orderId={order._id}
+      product={selectedProductForReview}
+      seller={null}
+      onReviewSubmitted={() => {
+        setRefreshTrigger(prev => prev + 1);
+        if (selectedProductForReview) {
+          setProductReviews(prev => ({ ...prev, [selectedProductForReview.id]: true }));
+        }
+      }}
+      type="product"
+    />
+    
+    {/* Seller Review Modal */}
+    <ReviewModal
+      isOpen={showSellerReviewModal}
+      onClose={() => setShowSellerReviewModal(false)}
+      orderId={order._id}
+      product={null}
+      seller={{
+        sellerId: order.sellerId,
+        sellerName: order.sellerName,
+        sellerEmail: order.sellerEmail
+      }}
+      onReviewSubmitted={() => {
+        setRefreshTrigger(prev => prev + 1);
+        setHasSellerReview(true);
+      }}
+      type="seller"
+    />
+  </>
 )}
         </div>
       </div>
@@ -1005,17 +1101,6 @@ const saveBankAccount = async () => {
             Profile Info
           </button>
           <button
-            onClick={() => setActiveTab('addresses')}
-            className={`pb-4 px-1 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
-              activeTab === 'addresses'
-                ? 'border-b-2 border-orange-500 text-orange-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <MapPin className="w-4 h-4 hidden md:inline-block" />
-            Delivery Addresses
-          </button>
-          <button
             onClick={() => setActiveTab('orders')}
             className={`pb-4 px-1 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'orders'
@@ -1539,104 +1624,208 @@ const saveBankAccount = async () => {
               </div>
             )}
           </div>
+          
+{/* Delivery Addresses Section */}
+<div className="mt-8 pt-6 border-t border-gray-200">
+  <div className="flex justify-between items-center mb-4">
+    <div className="flex items-center gap-2">
+      <MapPin className="w-5 h-5 text-orange-500" />
+      <h3 className="font-semibold text-gray-900">Delivery Addresses</h3>
+    </div>
+    <button
+      onClick={() => {
+        setEditingAddress(null);
+        setAddressForm({
+          type: 'home',
+          street: '',
+          city: '',
+          state: '',
+          postalCode: '',
+          country: 'Nigeria',
+          isDefault: addresses.length === 0,
+          landmark: '',
+          houseDescription: '',
+          askFor: ''
+        });
+        setSelectedAddressState('');
+        setSelectedAddressCity('');
+        setAddressCities([]);
+        setShowAddressForm(true);
+      }}
+      className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+    >
+      <Plus className="w-4 h-4" />
+      Add Address
+    </button>
+  </div>
+
+  {addresses.length === 0 ? (
+    <div className="p-6 bg-gray-50 rounded-lg text-center border-2 border-dashed border-gray-200">
+      <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+      <p className="text-gray-500 font-medium">No delivery addresses added</p>
+      <p className="text-xs text-gray-400 mt-1">
+        Add a delivery address to speed up checkout
+      </p>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {addresses.map((address) => (
+        <div key={address._id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded capitalize">
+                  {address.type}
+                </span>
+                {address.isDefault && (
+                  <span className="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                    Default
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-900 font-medium">{address.street}</p>
+              {address.houseDescription && (
+                <p className="text-sm text-gray-600 mt-1">{address.houseDescription}</p>
+              )}
+              {address.landmark && (
+                <p className="text-sm text-gray-600 mt-1">📍 Landmark: {address.landmark}</p>
+              )}
+              {address.askFor && (
+                <p className="text-sm text-gray-600 mt-1">👤 Ask for: {address.askFor}</p>
+              )}
+              <p className="text-gray-600 text-sm mt-1">
+                {address.city}, {address.state} {address.postalCode}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleEditAddress(address)}
+                className="text-blue-500 hover:text-blue-600 p-1"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              {!address.isDefault && (
+                <button
+                  onClick={() => deleteAddress(address._id)}
+                  className="text-red-500 hover:text-red-600 p-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+          {!address.isDefault && (
+            <button
+              onClick={() => setDefaultAddress(address._id)}
+              className="mt-3 text-sm text-green-600 hover:text-green-700"
+            >
+              Set as Default
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
         </div>
       )}
 
-{/* Addresses Tab */}
-{activeTab === 'addresses' && (
-  <div>
-    <div className="flex justify-between items-center mb-6">
-      <h2 className="text-lg font-semibold text-gray-900">Saved Addresses</h2>
-      <button
-        onClick={() => {
-          setEditingAddress(null);
-          setAddressForm({
-            type: 'home',
-            street: '',
-            city: '',
-            state: '',
-            postalCode: '',
-            country: 'Nigeria',
-            isDefault: addresses.length === 0,
-            landmark: '',
-            houseDescription: '',
-            askFor: ''
-          });
-          setSelectedAddressState('');
-          setSelectedAddressCity('');
-          setAddressCities([]);
-          setShowAddressForm(true);
-        }}
-        className="bg-orange-500 text-xs text-white px-3 py-2 rounded-lg hover:bg-orange-600 transition"
-      >
-        + Add New Address
-      </button>
-    </div>
 
-    {addresses.length === 0 && !showAddressForm ? (
+
+      {/* Orders Tab */}
+      {activeTab === 'orders' && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Order History</h2>
+          
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <Package className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No orders yet</p>
+              <button 
+                onClick={() => navigate('/')}
+                className="mt-4 text-orange-500 hover:text-orange-600"
+              >
+                Start Shopping
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {orders.map((order) => (
+                <OrderCard 
+                  key={order._id}
+                  order={order}
+                  formatPrice={formatPrice}
+                  getOrderStatusColor={getOrderStatusColor}
+                  onOrderCancelled={fetchOrders}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      
+{activeTab === 'payouts' && (
+  <div>
+    <h2 className="text-xl font-semibold text-gray-900 mb-6">My Payouts</h2>
+    
+    {loadingPayouts ? (
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    ) : payouts.length === 0 ? (
       <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <MapPin className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-        <p className="text-gray-500">No saved addresses</p>
-        <p className="text-sm text-gray-400 mt-1">Add a delivery address to speed up checkout</p>
+        <Banknote className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">No payouts yet</p>
+        <p className="text-sm text-gray-400 mt-1">When you sell products and deliveries are confirmed, payouts will appear here</p>
       </div>
     ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {addresses.map((address) => (
-          <div key={address._id} className="bg-white border border-gray-200 rounded-lg p-4 relative hover:shadow-md transition">
-            {address.isDefault && (
-              <span className="absolute top-4 right-4 bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
-                Default
-              </span>
-            )}
-            <div className="mb-3">
-              <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded capitalize">
-                {address.type}
+      <div className="space-y-4">
+        {payouts.map((payout) => (
+          <div key={payout._id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <p className="font-mono text-sm font-medium text-gray-900">
+                  Order #{payout.orderReference?.slice(-8)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {new Date(payout.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                payout.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                payout.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                'bg-green-100 text-green-700'
+              }`}>
+                {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
               </span>
             </div>
-            <p className="text-gray-900 mb-1 font-medium">{address.street}</p>
-            {address.houseDescription && (
-              <p className="text-sm text-gray-600 mb-1">{address.houseDescription}</p>
-            )}
-            {address.landmark && (
-              <p className="text-sm text-gray-600 mb-1">📍 Landmark: {address.landmark}</p>
-            )}
-            {address.askFor && (
-              <p className="text-sm text-gray-600 mb-1">👤 Ask for: {address.askFor}</p>
-            )}
-            <p className="text-gray-600 text-sm">
-              {address.city}, {address.state} {address.postalCode}
-            </p>
-            <p className="text-gray-600 text-sm">{address.country}</p>
-            <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
-              <button
-                onClick={() => handleEditAddress(address)}
-                className="text-blue-500 hover:text-blue-600 text-sm"
-              >
-                Edit
-              </button>
-              {!address.isDefault && (
-                <>
-                  <button
-                    onClick={() => setDefaultAddress(address._id)}
-                    className="text-green-500 hover:text-green-600 text-sm"
-                  >
-                    Set as Default
-                  </button>
-                  <button
-                    onClick={() => deleteAddress(address._id)}
-                    className="text-red-500 hover:text-red-600 text-sm"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Order Total:</span>
+                <span className="font-medium">{formatPrice(payout.originalAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Platform Fee (5%):</span>
+                <span className="text-red-600">{formatPrice(payout.platformFee)}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-gray-100">
+                <span className="font-semibold text-gray-900">Your Payout:</span>
+                <span className="font-bold text-green-600">{formatPrice(payout.amount)}</span>
+              </div>
             </div>
           </div>
         ))}
       </div>
     )}
+  </div>
+)}
 
-    {/* Address Form Modal */}
+{/* Address Form Modal */}
     {showAddressForm && (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -1851,101 +2040,6 @@ const saveBankAccount = async () => {
         </div>
       </div>
     )}
-  </div>
-)}
-
-      {/* Orders Tab */}
-      {activeTab === 'orders' && (
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Order History</h2>
-          
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-            </div>
-          ) : orders.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <Package className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500">No orders yet</p>
-              <button 
-                onClick={() => navigate('/')}
-                className="mt-4 text-orange-500 hover:text-orange-600"
-              >
-                Start Shopping
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {orders.map((order) => (
-                <OrderCard 
-                  key={order._id}
-                  order={order}
-                  formatPrice={formatPrice}
-                  getOrderStatusColor={getOrderStatusColor}
-                  onOrderCancelled={fetchOrders}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      
-{activeTab === 'payouts' && (
-  <div>
-    <h2 className="text-xl font-semibold text-gray-900 mb-6">My Payouts</h2>
-    
-    {loadingPayouts ? (
-      <div className="text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-      </div>
-    ) : payouts.length === 0 ? (
-      <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <Banknote className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-        <p className="text-gray-500">No payouts yet</p>
-        <p className="text-sm text-gray-400 mt-1">When you sell products and deliveries are confirmed, payouts will appear here</p>
-      </div>
-    ) : (
-      <div className="space-y-4">
-        {payouts.map((payout) => (
-          <div key={payout._id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <p className="font-mono text-sm font-medium text-gray-900">
-                  Order #{payout.orderReference?.slice(-8)}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {new Date(payout.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                payout.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                payout.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                'bg-green-100 text-green-700'
-              }`}>
-                {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
-              </span>
-            </div>
-            
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Order Total:</span>
-                <span className="font-medium">{formatPrice(payout.originalAmount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Platform Fee (5%):</span>
-                <span className="text-red-600">{formatPrice(payout.platformFee)}</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-gray-100">
-                <span className="font-semibold text-gray-900">Your Payout:</span>
-                <span className="font-bold text-green-600">{formatPrice(payout.amount)}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
     </div>
   );
 };
