@@ -1174,12 +1174,12 @@ const saveBankAccount = async () => {
                   {bankAccount ? (
                     <>
                       <Edit2 className="w-4 h-4" />
-                      Change Account
+                      Change <span className="hidden md:inline-block">Account</span>
                     </>
                   ) : (
                     <>
                       <Plus className="w-4 h-4" />
-                      Add Bank Account
+                      Add Bank <span className="hidden md:inline-block">Account</span>
                     </>
                   )}
                 </button>
@@ -1191,8 +1191,8 @@ const saveBankAccount = async () => {
                 <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <CreditCard className="hidden md:inline-block w-5 h-5 text-green-600" />
+                      <div className="w-10 h-10 bg-green-100 rounded-full hidden md:flex items-center justify-center">
+                        <CreditCard className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{bankAccount.bankName || 'Bank Account'}</p>
