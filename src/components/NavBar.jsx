@@ -59,7 +59,7 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
             {buyerLocation && (
               <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-lg">
                 <MapPin className="w-4 h-4 text-orange-500" />
-                <span className="text-xs text-gray-600">
+                <span className="text-xs text-gray-600 line-clamp-1">
                   {buyerLocation.city}
                 </span>
               </div>
@@ -101,15 +101,6 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
           </div>
         </form>
         
-        {/* Mobile Location Indicator */}
-        {buyerLocation && (
-          <div className="hidden mt-2 flex items-center justify-end gap-1">
-            <MapPin className="w-3 h-3 text-orange-500" />
-            <span className="text-xs text-gray-500">
-              {buyerLocation.city}, {buyerLocation.state}
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );
