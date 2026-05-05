@@ -1160,12 +1160,7 @@ const saveBankAccount = async () => {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <Banknote className="w-5 h-5 text-orange-500" />
-                <h3 className="font-semibold text-gray-900">Payout Bank Account</h3>
-                {bankAccount && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full ml-2">
-                    Active
-                  </span>
-                )}
+                <h3 className="font-semibold text-gray-900">Payout Account</h3>
               </div>
               {!showBankForm && !showConfirmation && (
                 <button
@@ -1197,7 +1192,7 @@ const saveBankAccount = async () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <CreditCard className="w-5 h-5 text-green-600" />
+                        <CreditCard className="hidden md:inline-block w-5 h-5 text-green-600" />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{bankAccount.bankName || 'Bank Account'}</p>
@@ -1217,7 +1212,7 @@ const saveBankAccount = async () => {
                   </div>
                   <div className="mt-3 pt-3 border-t border-green-200">
                     <p className="text-xs text-gray-600 flex items-center gap-1">
-                      <Info className="w-3 h-3" />
+                      <Info className="hidden md:inline-flex w-3 h-3" />
                       This account will be used for payouts when you sell products on Zoomia or for refund from order cancelation or dispute settlement
                     </p>
                   </div>
