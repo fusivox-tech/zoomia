@@ -57,7 +57,7 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
           <div className="flex items-center gap-4">
             {/* Location Indicator */}
             {buyerLocation && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 max-w-[70px] md:max-w-auto rounded-lg">
                 <MapPin className="w-4 h-4 text-orange-500" />
                 <span className="text-xs text-gray-600 line-clamp-1">
                   {buyerLocation.city}
