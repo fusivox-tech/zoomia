@@ -94,7 +94,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
           ))}
         </div>
         <div className="p-6 flex flex-col gap-4 border-t border-gray-200">
-          {/* Show MY STORE if user is a seller, otherwise show SELL ON ZOOMIA */}
+          {/* Show MY STORE if user is a seller, otherwise show SELL ON ZOOMMIA */}
           {!checkingSeller && (
             isSeller ? (
               <button 
@@ -110,7 +110,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
                   onClick={handleSellClick} 
                   className="text-left"
                 >
-                  SELL ON ZOOMIA
+                  SELL ON ZOOMMIA
                 </button>
               ) : (
                 <button 
@@ -120,7 +120,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
                   }} 
                   className="text-left"
                 >
-                  SELL ON ZOOMIA
+                  SELL ON ZOOMMIA
                 </button>
               )
             )

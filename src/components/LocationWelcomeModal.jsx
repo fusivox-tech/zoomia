@@ -83,7 +83,7 @@ const LocationWelcomeModal = ({ onLocationSelected }) => {
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-white">Welcome to Zoomia!</h2>
+            <h2 className="text-xl font-bold text-white">Welcome to Zoommia!</h2>
           </div>
           <p className="text-orange-100 text-sm mt-2">
             Your one stop shop for incredible products with amazing prices.

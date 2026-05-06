@@ -1186,7 +1186,7 @@ const handleSubmit = async (e) => {
             <div className="inline-flex items-center justify-center w-20 h-20 bg-orange-100 rounded-full mb-6">
               <Store className="w-10 h-10 text-orange-500" />
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Become a Seller on Zoomia</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Become a Seller on Zoommia</h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">Start earning by selling your products to thousands of customers across Nigeria</p>
           </div>
 
@@ -1217,7 +1217,7 @@ const handleSubmit = async (e) => {
           </div>
 
           <div className="bg-gray-50 rounded-2xl p-8 mb-12">
-            <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">How Selling on Zoomia Works</h2>
+            <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">How Selling on Zoommia Works</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">1</div>
@@ -1274,7 +1274,7 @@ const handleSubmit = async (e) => {
               <Truck className="w-6 h-6 text-orange-500" />
               <h2 className="text-xl font-bold text-gray-900">Delivery Management</h2>
             </div>
-            <p className="text-gray-600 mb-4">As a seller on Zoomia, you're in complete control of your delivery process:</p>
+            <p className="text-gray-600 mb-4">As a seller on Zoommia, you're in complete control of your delivery process:</p>
             <ul className="space-y-3">
               <li className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />

@@ -1298,7 +1298,7 @@ const saveBankAccount = async () => {
                   <div className="mt-3 pt-3 border-t border-green-200">
                     <p className="text-xs text-gray-600 flex items-center gap-1">
                       <Info className="hidden md:inline-flex w-3 h-3" />
-                      This account will be used for payouts when you sell products on Zoomia or for refund from order cancelation or dispute settlement
+                      This account will be used for payouts when you sell products on Zoommia or for refund from order cancelation or dispute settlement
                     </p>
                   </div>
                 </div>

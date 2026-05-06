@@ -132,7 +132,7 @@ const initializePaystackPayment = async () => {
   
   try {
     const selectedAddress = addresses.find(addr => addr._id === selectedAddressId);
-    const reference = `ZOOMIA_${user._id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const reference = `ZOOMMIA_${user._id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
     const orderData = {
       reference: reference,

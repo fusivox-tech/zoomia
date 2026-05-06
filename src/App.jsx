@@ -64,7 +64,7 @@ const AppContent = () => {
       <div className="h-screen w-full flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
-          <p className="text-gray-500">Loading Zoomia...</p>
+          <p className="text-gray-500">Loading Zoommia...</p>
         </div>
       </div>
     );

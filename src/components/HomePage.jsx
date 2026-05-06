@@ -334,7 +334,7 @@ const HomePage = () => {
           <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Navigation className="w-10 h-10 text-orange-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Zoomia!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Zoommia!</h2>
           <p className="text-gray-600 mb-4 max-w-md mx-auto">
             To see products available for delivery in your area, please select your delivery location.
           </p>

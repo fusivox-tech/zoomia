@@ -24,9 +24,9 @@ const Footer = () => {
           <div>
             <div className="mb-4">
               <img 
-                src="https://res.cloudinary.com/danuehpic/image/upload/v1777758606/Untitled_design_20260502_224906_0000_ydx8la.png" 
-                alt="Zoomia" 
-                className="h-10 -ml-4 w-auto brightness-0 invert mb-3"
+                src="/wordmark.png" 
+                alt="Zoommia" 
+                className="h-8 w-auto brightness-0 invert mb-3"
               />
               <p className="text-sm text-gray-400 mt-2">
                 Your one-stop shop for quality products at affordable prices. 
@@ -71,7 +71,7 @@ const Footer = () => {
               </li>
               <li>
                 <button onClick={() => navigate('/seller')} className="text-sm text-gray-400 hover:text-orange-500 transition">
-                  Sell on Zoomia
+                  Sell on Zoommia
                 </button>
               </li>
               <li>
@@ -96,7 +96,7 @@ const Footer = () => {
         {/* Copyright Bar */}
         <div className="border-t border-gray-800 pt-6 mt-4 text-center">
           <p className="text-xs text-gray-500">
-            &copy; {currentYear} Zoomia. All rights reserved. 
+            &copy; {currentYear} Zoommia. All rights reserved. 
             <button className="ml-2 hover:text-orange-500 transition">Privacy Policy</button>
             <button className="mx-2">•</button>
             <button className="hover:text-orange-500 transition">Terms of Service</button>

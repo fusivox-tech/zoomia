@@ -35,7 +35,7 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
             <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? (<X className="w-5 h-5" />) : (<Menu className="w-5 h-5" />)}
             </button>
-            <img src="/wordmark.png" className="h-6 w-auto cursor-pointer" onClick={() => navigate('/')} />
+            <img src="/wordmark.png" className="h-5 w-auto cursor-pointer" onClick={() => navigate('/')} />
           </div>
           
           {/* Search Bar */}

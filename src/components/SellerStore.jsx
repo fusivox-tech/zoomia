@@ -280,7 +280,7 @@ const SellerStore = () => {
               <img 
                 src={seller.profileImage} 
                 alt={seller.businessName} 
-                className="w-full h-full object-cover"
+                className="w-full h-full rounded object-cover"
               />
             ) : (
               <span className="text-3xl font-bold text-gray-400">
@@ -324,7 +324,7 @@ const SellerStore = () => {
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          Seller Reviews
+          Reviews
         </button>
       </div>
       
@@ -347,7 +347,7 @@ const SellerStore = () => {
                 <option value="rating">Highest Rated</option>
               </select>
             </div>
-            <p className="text-sm text-gray-500">{productPagination.total} products found</p>
+            <p className="text-sm text-gray-500">{productPagination.total} Listings</p>
           </div>
           
           {/* Products Grid */}
