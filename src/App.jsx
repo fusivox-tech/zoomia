@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; 
 import { useState, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { DataProvider, useData } from './contexts/DataContext';
 import NavBar from './components/NavBar';
 import Menu from './components/Menu';
@@ -73,6 +74,8 @@ const AppContent = () => {
     <div className="min-h-screen w-full flex flex-col bg-gray-50">
 
       <Analytics />
+      
+      <SpeedInsights />
       
       {/* Alert Component */}
       {alert && (
