@@ -290,9 +290,7 @@ const ProductListingModal = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-xl">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-50 rounded-t-xl">
           <h2 className="text-xl font-semibold text-gray-900">

@@ -122,13 +122,13 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen, onAnimationChange }) => {
     <>
       {/* Backdrop overlay - fades in/out (mobile only) */}
       <div 
-        className={`fixed inset-0 bg-black/50 z-10 md:-z-10 transition-opacity duration-300 md:hidden
+        className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 md:hidden
           ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
         onClick={closeMenu}
       />
       
       {/* Menu panel - slides from left on all screen sizes */}
-      <div className={`fixed top-0 md:top-18 left-0 z-[1001] h-full transition-transform duration-300 ease-in-out
+      <div className={`fixed top-0 md:top-18 left-0 z-50 h-full transition-transform duration-300 ease-in-out
         ${isAnimating ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="w-[350px] md:w-[250px] h-full bg-white border-r border-gray-200 overflow-y-auto shadow-lg md:shadow-none">
           <div className="w-full p-4 flex md:hidden items-center gap-4 border-b border-gray-200">
