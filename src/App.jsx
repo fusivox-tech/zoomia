@@ -32,6 +32,7 @@ const useScrollToTop = () => {
 const AppContent = () => {
   useScrollToTop();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuAnimating, setIsMenuAnimating] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { handleLoginSuccess, alert, hideAlert } = useData();
@@ -59,6 +60,10 @@ const AppContent = () => {
     }
   };
 
+  const handleMenuAnimationChange = (isAnimating) => {
+    setIsMenuAnimating(isAnimating);
+  };
+
   if (isLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-gray-50">
@@ -70,11 +75,13 @@ const AppContent = () => {
     );
   }
 
+  // Calculate if content should have margin
+  // On desktop, always have margin when menu is open OR animating (to prevent layout shift)
+  const shouldHaveMargin = isMenuOpen || (isMenuAnimating && window.innerWidth >= 768);
+
   return (
     <div className="min-h-screen w-full flex flex-col bg-gray-50">
-
       <Analytics />
-      
       <SpeedInsights />
       
       {/* Alert Component */}
@@ -88,30 +95,37 @@ const AppContent = () => {
       )}
       
       <NavBar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
-      <Menu isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
+      <Menu 
+        isMenuOpen={isMenuOpen} 
+        setIsMenuOpen={setIsMenuOpen}
+        onAnimationChange={handleMenuAnimationChange}
+      />
       
       {/* Main Content - grows to push footer down */}
-      <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={
-            <GoogleOAuthProvider clientId="531388924549-sph32gdm0rhbh3ns5kt27f3rb357dtnf.apps.googleusercontent.com">
-              <LoginPage onLoginSuccess={handleLoginSuccess} />
-            </GoogleOAuthProvider>
-          } />
-          <Route path="/seller" element={<Seller />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/payment/verify" element={<PaymentVerification />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/seller-store/:sellerId" element={<SellerStore />} />
-        </Routes>
+      <main 
+        className={`flex-grow transition-all duration-300 ease-in-out
+          ${shouldHaveMargin ? 'md:ml-[250px]' : 'md:ml-0'}`}
+      >
+        <div className="min-h-[calc(100vh-450px)]">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={
+              <GoogleOAuthProvider clientId="531388924549-sph32gdm0rhbh3ns5kt27f3rb357dtnf.apps.googleusercontent.com">
+                <LoginPage onLoginSuccess={handleLoginSuccess} />
+              </GoogleOAuthProvider>
+            } />
+            <Route path="/seller" element={<Seller />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/payment/verify" element={<PaymentVerification />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/seller-store/:sellerId" element={<SellerStore />} />
+          </Routes>
+        </div>
+        <Footer />
       </main>
-      
-      {/* Footer - appears at bottom */}
-      <Footer />
       
       {/* Location Welcome Modal */}
       {showLocationModal && (

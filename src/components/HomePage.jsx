@@ -1,4 +1,4 @@
-// HomePage.jsx - With fixed category distribution
+// HomePage.jsx - With responsive grid based on parent width
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
@@ -45,10 +45,12 @@ const Banners = () => {
         <img 
           src="https://res.cloudinary.com/danuehpic/image/upload/v1777883168/file_00000000656871f499b7ed8e1d9ea20d_aeo0rw.png" 
           className="flex-1 md:max-w-[49%] h-auto" 
+          alt="Banner"
         />
         <img 
           className="flex-1 md:max-w-[49%] h-auto" 
           src="https://res.cloudinary.com/danuehpic/image/upload/v1777883151/file_0000000046c471f4a4f59597eb342b77_xdy11w.png" 
+          alt="Banner"
         />
       </div>
 
@@ -105,7 +107,7 @@ const HomePage = () => {
     try {
       const queryParams = new URLSearchParams({
         groupByCategory: 'true',
-        limit: '50' // Fetch more products to properly distribute
+        limit: '50'
       });
       
       if (city && state) {
@@ -117,32 +119,26 @@ const HomePage = () => {
       const data = await response.json();
       
       if (data.success && data.groupedByCategory) {
-        // Create a map to reorganize products by ALL their categories
         const categoryMap = new Map();
-        const uniqueProductsMap = new Map(); // For featured section
+        const uniqueProductsMap = new Map();
         
-        // Process each category group from the backend
         data.data.forEach(categoryGroup => {
           const backendCategory = categoryGroup.category;
           
           categoryGroup.products.forEach(product => {
-            // Get all categories for this product
             const productCategories = product.categories && product.categories.length > 0 
               ? product.categories 
               : [backendCategory];
             
-            // Add product to featured section (using Map to avoid duplicates)
             if (!uniqueProductsMap.has(product._id)) {
               uniqueProductsMap.set(product._id, product);
             }
             
-            // Add product to each of its categories
             productCategories.forEach(cat => {
               if (!categoryMap.has(cat)) {
                 categoryMap.set(cat, []);
               }
               
-              // Check if product already exists in this category
               const existingProducts = categoryMap.get(cat);
               const productExists = existingProducts.some(p => p._id === product._id);
               
@@ -153,20 +149,17 @@ const HomePage = () => {
           });
         });
         
-        // Convert map to array of categories with products
         let allCategories = Array.from(categoryMap.entries()).map(([category, products]) => ({
           category,
           totalCount: products.length,
-          products: shuffleArray(products.slice(0, 12)) // Limit to 12 products per category
+          products: shuffleArray(products.slice(0, 12))
         }));
         
-        // Sort categories by name or by product count
         allCategories = allCategories.sort((a, b) => b.totalCount - a.totalCount);
         
         setLocalCategoriesWithProducts(allCategories);
         setCategoriesWithProducts(allCategories);
         
-        // Set featured products (unique products, shuffled, limited to 12)
         const uniqueProducts = Array.from(uniqueProductsMap.values());
         const shuffledProducts = shuffleArray(uniqueProducts);
         const featured = shuffledProducts.slice(0, 12);
@@ -285,7 +278,11 @@ const HomePage = () => {
         </button>
       </div>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
+      {/* Responsive grid that adjusts based on parent container width */}
+      <div className="grid gap-4 md:gap-5" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))'
+      }}>
         {products.map((product) => (
           <GridProductCard key={product._id} product={product} />
         ))}
@@ -319,7 +316,10 @@ const HomePage = () => {
         <div className="h-7 w-32 bg-gray-200 rounded"></div>
         <div className="h-5 w-20 bg-gray-200 rounded"></div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5">
+      <div className="grid gap-4 md:gap-5" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))'
+      }}>
         {[...Array(6)].map((_, i) => (
           <GridSkeleton key={i} />
         ))}
