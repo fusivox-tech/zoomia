@@ -1,8 +1,15 @@
-import { X, Microwave, Smartphone, Heart, Home, Laptop, Shirt, ShoppingCart, Computer, Baby, Gamepad2 } from 'lucide-react';
+import { X, Microwave, Smartphone, Heart, Home, Laptop, Shirt, ShoppingCart, Computer, Baby, Gamepad2, Store } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useData } from '../contexts/DataContext';
+import { useState, useEffect } from 'react';
+import API_BASE_URL from '../config';
 
 const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
   const navigate = useNavigate();
+  const { user, token } = useData();
+  const [isSeller, setIsSeller] = useState(false);
+  const [sellerId, setSellerId] = useState(null);
+  const [checkingSeller, setCheckingSeller] = useState(true);
   
   const categories = [
     { name: 'Appliances', icon: Microwave, path: 'Appliances' },
@@ -17,8 +24,57 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
     { name: 'Gaming', icon: Gamepad2, path: 'Gaming' },
   ];
 
+  // Check if user is a seller (has at least one active product)
+  useEffect(() => {
+    const checkIfSeller = async () => {
+      if (!user || !user.id) {
+        setIsSeller(false);
+        setCheckingSeller(false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/products/seller/${user.id}`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.length > 0) {
+          setIsSeller(true);
+          setSellerId(user.id);
+        } else {
+          setIsSeller(false);
+        }
+      } catch (error) {
+        console.error('Error checking seller status:', error);
+        setIsSeller(false);
+      } finally {
+        setCheckingSeller(false);
+      }
+    };
+    
+    checkIfSeller();
+  }, [user, token]);
+
   const handleCategoryClick = (categoryName) => {
     navigate(`/search?category=${encodeURIComponent(categoryName)}`);
+    setIsMenuOpen(false);
+  };
+  
+  const handleMyStoreClick = () => {
+    if (sellerId) {
+      navigate(`/seller-store/${sellerId}`);
+    } else {
+      navigate('/seller');
+    }
+    setIsMenuOpen(false);
+  };
+  
+  const handleSellClick = () => {
+    navigate('/seller');
     setIsMenuOpen(false);
   };
   
@@ -44,11 +100,48 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
           ))}
         </div>
         <div className="p-6 flex flex-col gap-4 border-t border-gray-200">
-          <button onClick={() => {
-           navigate('/seller');
-           setIsMenuOpen(false);
-          }} className="text-left">SELL ON ZOOMIA</button>
-          <button onClick={() => window.open('mailto:paulrotimijohnson@gmail.com')} className="text-left">CONTACT SUPPORT</button>
+          {/* Show MY STORE if user is a seller, otherwise show SELL ON ZOOMIA */}
+          {!checkingSeller && (
+            isSeller ? (
+              <button 
+                onClick={handleMyStoreClick} 
+                className="text-left flex items-center gap-2 font-medium text-orange-600"
+              >
+                <Store className="w-4 h-4" />
+                MY STORE
+              </button>
+            ) : (
+              user ? (
+                <button 
+                  onClick={handleSellClick} 
+                  className="text-left"
+                >
+                  SELL ON ZOOMIA
+                </button>
+              ) : (
+                <button 
+                  onClick={() => {
+                    navigate('/login');
+                    setIsMenuOpen(false);
+                  }} 
+                  className="text-left"
+                >
+                  SELL ON ZOOMIA
+                </button>
+              )
+            )
+          )}
+          
+          {/* Show loading state while checking */}
+          {checkingSeller && user && (
+            <div className="text-left text-gray-400 text-sm">
+              Loading...
+            </div>
+          )}
+          
+          <button onClick={() => window.open('mailto:paulrotimijohnson@gmail.com')} className="text-left">
+            CONTACT SUPPORT
+          </button>
         </div>
       </div>
     </div>
