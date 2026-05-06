@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useState, useEffect } from 'react';
 import API_BASE_URL from '../config';
+import axios from 'axios';
 
 const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
   const navigate = useNavigate();
@@ -23,28 +24,27 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
     { name: 'Baby Product', icon: Baby, path: 'Baby Product' },
     { name: 'Gaming', icon: Gamepad2, path: 'Gaming' },
   ];
+  
+  const getAuthToken = () => localStorage.getItem('token');
 
   // Check if user is a seller (has at least one active product)
   useEffect(() => {
     const checkIfSeller = async () => {
-      if (!user || !user.id) {
+      if (!user || !user._id) {
         setIsSeller(false);
         setCheckingSeller(false);
         return;
       }
       
       try {
-        const response = await fetch(`${API_BASE_URL}/products/seller/${user.id}`, {
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : '',
-            'Content-Type': 'application/json'
-          }
+        const token = getAuthToken();
+        const response = await axios.get(`${API_BASE_URL}/products/seller/${user._id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        const data = await response.json();
         
-        if (data.success && data.data && data.data.length > 0) {
+        if (response.data.success && response.data.data && response.data.data.length > 0) {
           setIsSeller(true);
-          setSellerId(user.id);
+          setSellerId(user._id);
         } else {
           setIsSeller(false);
         }
@@ -65,11 +65,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
   };
   
   const handleMyStoreClick = () => {
-    if (sellerId) {
-      navigate(`/seller-store/${sellerId}`);
-    } else {
-      navigate('/seller');
-    }
+    navigate(`/seller`);
     setIsMenuOpen(false);
   };
   
