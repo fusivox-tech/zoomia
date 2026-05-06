@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; 
 import { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { DataProvider, useData } from './contexts/DataContext';
 import NavBar from './components/NavBar';
 import Menu from './components/Menu';
@@ -70,6 +71,9 @@ const AppContent = () => {
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-gray-50">
+
+      <Analytics />
+      
       {/* Alert Component */}
       {alert && (
         <Alert
