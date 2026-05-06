@@ -7,9 +7,8 @@ import axios from 'axios';
 
 const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
   const navigate = useNavigate();
-  const { user, token } = useData();
+  const { user } = useData();
   const [isSeller, setIsSeller] = useState(false);
-  const [sellerId, setSellerId] = useState(null);
   const [checkingSeller, setCheckingSeller] = useState(true);
   
   const categories = [
@@ -44,7 +43,6 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
         
         if (response.data.success && response.data.data && response.data.data.length > 0) {
           setIsSeller(true);
-          setSellerId(user._id);
         } else {
           setIsSeller(false);
         }
@@ -57,7 +55,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen }) => {
     };
     
     checkIfSeller();
-  }, [user, token]);
+  }, [user]);
 
   const handleCategoryClick = (categoryName) => {
     navigate(`/search?category=${encodeURIComponent(categoryName)}`);
