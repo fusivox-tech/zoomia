@@ -122,7 +122,7 @@ const MainMenu = ({ isMenuOpen, setIsMenuOpen, onAnimationChange }) => {
     <>
       {/* Backdrop overlay - fades in/out (mobile only) */}
       <div 
-        className={`fixed inset-0 bg-black/50 z-[10] transition-opacity duration-300 md:hidden
+        className={`fixed inset-0 bg-black/50 z-10 md:-z-10 transition-opacity duration-300 md:hidden
           ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
         onClick={closeMenu}
       />
