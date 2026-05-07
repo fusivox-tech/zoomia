@@ -1,9 +1,12 @@
-// DeliveryConfigManager.jsx
 import { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
-import { Truck, Plus, X, MapPin, Globe, Layers, Edit2, Trash2, Star, Copy, Check, AlertCircle, ChevronDown, ChevronUp, Tag, Percent, DollarSign, Loader, Building2 } from 'lucide-react';
+import { 
+  Truck, Plus, X, MapPin, Globe, Layers, Edit2, Trash2, 
+  Star, Copy, Check, AlertCircle, ChevronDown, ChevronUp,
+  Tag, Percent, DollarSign, Loader, Building2
+} from 'lucide-react';
 
 const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
   const { showSuccess, showError } = useData();
@@ -12,9 +15,6 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [expandingZones, setExpandingZones] = useState(false);
-  const [savingZones, setSavingZones] = useState(false);
-  const [savedConfigId, setSavedConfigId] = useState(null);
-  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -51,24 +51,24 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
   const [loadingNeighborhoods, setLoadingNeighborhoods] = useState(false);
   
   const [expandedZone, setExpandedZone] = useState(null);
-  
+
   useEffect(() => {
     fetchConfigs();
     fetchStates();
   }, []);
-  
+
   useEffect(() => {
     if (selectedState) {
       fetchCities(selectedState);
     }
   }, [selectedState]);
-  
+
   useEffect(() => {
     if (selectedState && selectedCity) {
       fetchNeighborhoods(selectedState, selectedCity);
     }
   }, [selectedCity]);
-  
+
   const fetchConfigs = async () => {
     setLoading(true);
     try {
@@ -86,7 +86,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       setLoading(false);
     }
   };
-  
+
   const fetchStates = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/cities/states`);
@@ -97,7 +97,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       console.error('Error fetching states:', error);
     }
   };
-  
+
   const fetchCities = async (state) => {
     setLoadingCities(true);
     try {
@@ -111,7 +111,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       setLoadingCities(false);
     }
   };
-  
+
   const fetchNeighborhoods = async (state, city) => {
     setLoadingNeighborhoods(true);
     try {
@@ -125,7 +125,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       setLoadingNeighborhoods(false);
     }
   };
-  
+
   // Add a single neighborhood zone
   const addSingleNeighborhood = () => {
     if (!selectedState || !selectedCity || !selectedNeighborhood) {
@@ -136,7 +136,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       showError('Please enter a valid delivery price');
       return;
     }
-    
+
     const newZone = {
       id: Date.now(),
       type: 'neighborhood',
@@ -146,25 +146,25 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       price: parseFloat(zonePrice),
       discountOnQuantity: { ...zoneDiscount }
     };
-    
+
     // Check for duplicate
     const isDuplicate = formData.zones.some(zone => 
-      zone.type === 'neighborhood' && 
-      zone.state === newZone.state && 
-      zone.city === newZone.city && 
+      zone.type === 'neighborhood' &&
+      zone.state === newZone.state &&
+      zone.city === newZone.city &&
       zone.neighborhood === newZone.neighborhood
     );
-    
+
     if (isDuplicate) {
       showError('This neighborhood already exists in this configuration');
       return;
     }
-    
+
     setFormData(prev => ({
       ...prev,
       zones: [...prev.zones, newZone]
     }));
-    
+
     // Reset form
     setZonePrice('');
     setSelectedNeighborhood('');
@@ -178,7 +178,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
     
     showSuccess('Neighborhood added successfully');
   };
-  
+
   // Add all neighborhoods in a city
   const addCityNeighborhoods = async () => {
     if (!selectedState || !selectedCity) {
@@ -189,7 +189,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       showError('Please enter a valid delivery price');
       return;
     }
-    
+
     setExpandingZones(true);
     try {
       const response = await axios.get(`${API_BASE_URL}/cities/${encodeURIComponent(selectedState)}/${encodeURIComponent(selectedCity)}/suburbs`);
@@ -238,7 +238,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       setZonePrice('');
     }
   };
-  
+
   // Add all neighborhoods in a state
   const addStateNeighborhoods = async () => {
     if (!selectedState) {
@@ -249,9 +249,10 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       showError('Please enter a valid delivery price');
       return;
     }
-    
+
     setExpandingZones(true);
     try {
+      // Fetch all cities in the state first
       const citiesResponse = await axios.get(`${API_BASE_URL}/cities/state/${encodeURIComponent(selectedState)}`);
       
       if (!citiesResponse.data.success || citiesResponse.data.data.length === 0) {
@@ -311,133 +312,137 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       setZonePrice('');
     }
   };
-  
-  // Save config metadata first (without zones)
-  const saveConfigMetadata = async () => {
-    if (!formData.name.trim()) {
-      showError('Please enter a configuration name');
-      return null;
+
+  // Add all neighborhoods in Nigeria (nationwide)
+  const addNationwideNeighborhoods = async () => {
+    if (!zonePrice || zonePrice <= 0) {
+      showError('Please enter a valid delivery price');
+      return;
     }
-    
+
+    setExpandingZones(true);
     try {
-      const token = localStorage.getItem('token');
-      const configData = {
-        name: formData.name,
-        description: formData.description,
-        isDefault: formData.isDefault,
-        bulkDiscounts: formData.bulkDiscounts,
-        zones: [] // Start with empty zones
-      };
+      let totalNewZones = 0;
+      let updatedZones = [...formData.zones];
       
-      let response;
-      if (editingConfig) {
-        response = await axios.put(
-          `${API_BASE_URL}/delivery-configs/${editingConfig._id}`,
-          configData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } else {
-        response = await axios.post(
-          `${API_BASE_URL}/delivery-configs`,
-          configData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-      
-      if (response.data.success) {
-        const configId = response.data.data._id;
-        setSavedConfigId(configId);
-        return configId;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error saving config metadata:', error);
-      showError(error.response?.data?.message || 'Failed to create configuration');
-      return null;
-    }
-  };
-  
-  // Save zones in batches to backend
-  const saveZonesInBatches = async (configId, zones) => {
-    const BATCH_SIZE = 500; // Save 500 zones at a time
-    const token = localStorage.getItem('token');
-    let successCount = 0;
-    
-    for (let i = 0; i < zones.length; i += BATCH_SIZE) {
-      const batch = zones.slice(i, i + BATCH_SIZE);
-      
-      try {
-        await axios.post(
-          `${API_BASE_URL}/delivery-configs/${configId}/add-zones-batch`,
-          { zones: batch },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+      for (const state of states) {
+        const citiesResponse = await axios.get(`${API_BASE_URL}/cities/state/${encodeURIComponent(state)}`);
         
-        successCount += batch.length;
-        // Show progress for large batches
-        if (zones.length > 1000) {
-          showSuccess(`Saved ${successCount} of ${zones.length} zones...`);
+        if (citiesResponse.data.success && citiesResponse.data.data.length > 0) {
+          for (const city of citiesResponse.data.data) {
+            const neighborhoodsResponse = await axios.get(`${API_BASE_URL}/cities/${encodeURIComponent(state)}/${encodeURIComponent(city)}/suburbs`);
+            
+            if (neighborhoodsResponse.data.success && neighborhoodsResponse.data.data.length > 0) {
+              const existingNeighborhoods = new Set(
+                updatedZones
+                  .filter(z => z.type === 'neighborhood' && z.state === state && z.city === city)
+                  .map(z => z.neighborhood)
+              );
+              
+              const newZones = neighborhoodsResponse.data.data
+                .filter(neighborhood => !existingNeighborhoods.has(neighborhood))
+                .map(neighborhood => ({
+                  id: Date.now() + Math.random(),
+                  type: 'neighborhood',
+                  state: state,
+                  city: city,
+                  neighborhood: neighborhood,
+                  price: parseFloat(zonePrice),
+                  discountOnQuantity: { ...zoneDiscount }
+                }));
+              
+              if (newZones.length > 0) {
+                updatedZones = [...updatedZones, ...newZones];
+                totalNewZones += newZones.length;
+              }
+            }
+          }
         }
-      } catch (error) {
-        console.error('Error saving batch:', error);
-        showError(`Failed to save batch starting at zone ${i + 1}. Please try again.`);
-        return false;
       }
+      
+      if (totalNewZones === 0) {
+        showError('All neighborhoods already have delivery zones configured');
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          zones: updatedZones
+        }));
+        showSuccess(`Added ${totalNewZones} neighborhoods across Nigeria`);
+      }
+    } catch (error) {
+      console.error('Error adding nationwide neighborhoods:', error);
+      showError('Failed to add nationwide delivery');
+    } finally {
+      setExpandingZones(false);
+      setZonePrice('');
     }
-    
-    return true;
   };
-  
-  // Main save function with batch processing
+
+  const removeZone = (zoneId) => {
+    setFormData(prev => ({
+      ...prev,
+      zones: prev.zones.filter(zone => zone.id !== zoneId)
+    }));
+  };
+
+  const updateZonePrice = (zoneId, price) => {
+    setFormData(prev => ({
+      ...prev,
+      zones: prev.zones.map(zone =>
+        zone.id === zoneId ? { ...zone, price: parseFloat(price) } : zone
+      )
+    }));
+  };
+
+  const updateZoneDiscount = (zoneId, discountData) => {
+    setFormData(prev => ({
+      ...prev,
+      zones: prev.zones.map(zone =>
+        zone.id === zoneId ? { ...zone, discountOnQuantity: discountData } : zone
+      )
+    }));
+  };
+
   const saveConfig = async () => {
     if (!formData.name.trim()) {
       showError('Please enter a configuration name');
       return;
     }
-    
     if (formData.zones.length === 0) {
       showError('Please add at least one delivery zone');
       return;
     }
-    
-    setSavingZones(true);
-    
+
     try {
-      // First, save the config metadata (without zones)
-      const configId = await saveConfigMetadata();
+      const token = localStorage.getItem('token');
+      let response;
       
-      if (!configId) {
-        setSavingZones(false);
-        return;
+      if (editingConfig) {
+        response = await axios.put(
+          `${API_BASE_URL}/delivery-configs/${editingConfig._id}`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        response = await axios.post(
+          `${API_BASE_URL}/delivery-configs`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
       }
       
-      // Then, save zones in batches
-      const zonesSaved = await saveZonesInBatches(configId, formData.zones);
-      
-      if (zonesSaved) {
+      if (response.data.success) {
         showSuccess(editingConfig ? 'Configuration updated!' : 'Configuration created!');
         setShowModal(false);
         resetForm();
-        await fetchConfigs();
-        
-        // If there's a config selected callback, trigger it
-        if (onConfigSelected && configId) {
-          const updatedConfig = configs.find(c => c._id === configId);
-          if (updatedConfig) {
-            onConfigSelected(configId, updatedConfig);
-          }
-        }
-      } else {
-        showError('Configuration created but some zones failed to save. Please try again.');
+        fetchConfigs();
       }
     } catch (error) {
       console.error('Error saving config:', error);
       showError(error.response?.data?.message || 'Failed to save configuration');
-    } finally {
-      setSavingZones(false);
     }
   };
-  
+
   const setAsDefault = async (configId) => {
     try {
       const token = localStorage.getItem('token');
@@ -455,9 +460,10 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       showError('Failed to set as default');
     }
   };
-  
+
   const deleteConfig = async (configId) => {
     if (!window.confirm('Are you sure you want to delete this configuration? This cannot be undone.')) return;
+    
     try {
       const token = localStorage.getItem('token');
       const response = await axios.delete(`${API_BASE_URL}/delivery-configs/${configId}`, {
@@ -472,12 +478,12 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       showError('Failed to delete configuration');
     }
   };
-  
+
   const editConfig = (config) => {
     setEditingConfig(config);
     setFormData({
       name: config.name,
-      description: config.description || "",
+      description: config.description || '',
       isDefault: config.isDefault || false,
       zones: config.zones.map((zone, index) => ({ ...zone, id: Date.now() + index })),
       bulkDiscounts: config.bulkDiscounts || {
@@ -490,10 +496,9 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
     });
     setShowModal(true);
   };
-  
+
   const resetForm = () => {
     setEditingConfig(null);
-    setSavedConfigId(null);
     setFormData({
       name: '',
       description: '',
@@ -513,47 +518,26 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
     setSelectedNeighborhood('');
     setZonePrice('');
   };
-  
-  const removeZone = (zoneId) => {
-    setFormData(prev => ({
-      ...prev,
-      zones: prev.zones.filter(zone => zone.id !== zoneId)
-    }));
-  };
-  
-  const updateZonePrice = (zoneId, price) => {
-    setFormData(prev => ({
-      ...prev,
-      zones: prev.zones.map(zone =>
-        zone.id === zoneId ? { ...zone, price: parseFloat(price) } : zone
-      )
-    }));
-  };
-  
-  const updateZoneDiscount = (zoneId, discountData) => {
-    setFormData(prev => ({
-      ...prev,
-      zones: prev.zones.map(zone =>
-        zone.id === zoneId ? { ...zone, discountOnQuantity: discountData } : zone
-      )
-    }));
-  };
-  
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN'
     }).format(price);
   };
-  
+
   // Group zones by state and city for better display
   const zonesByState = formData.zones.reduce((acc, zone) => {
-    if (!acc[zone.state]) acc[zone.state] = {};
-    if (!acc[zone.state][zone.city]) acc[zone.state][zone.city] = [];
+    if (!acc[zone.state]) {
+      acc[zone.state] = {};
+    }
+    if (!acc[zone.state][zone.city]) {
+      acc[zone.state][zone.city] = [];
+    }
     acc[zone.state][zone.city].push(zone);
     return acc;
   }, {});
-  
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 mb-4">
       <div className="flex items-center justify-between mb-4">
@@ -573,7 +557,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
           New Config
         </button>
       </div>
-      
+
       {loading ? (
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
@@ -590,7 +574,11 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
           {configs.map((config) => (
             <div
               key={config._id}
-              className={`border rounded-lg p-3 cursor-pointer transition ${selectedConfigId === config._id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-300'}`}
+              className={`border rounded-lg p-3 cursor-pointer transition ${
+                selectedConfigId === config._id
+                  ? 'border-orange-500 bg-orange-50'
+                  : 'border-gray-200 hover:border-orange-300'
+              }`}
               onClick={() => onConfigSelected?.(config._id, config)}
             >
               <div className="flex justify-between items-start">
@@ -610,13 +598,16 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                       </span>
                     )}
                   </div>
-                  {config.description && <p className="text-xs text-gray-500 mt-1">{config.description}</p>}
+                  {config.description && (
+                    <p className="text-xs text-gray-500 mt-1">{config.description}</p>
+                  )}
                   <p className="text-xs text-gray-400 mt-1">
                     {config.zones.length} neighborhood(s) configured
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       editConfig(config);
@@ -627,6 +618,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   </button>
                   {!config.isDefault && (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setAsDefault(config._id);
@@ -638,6 +630,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteConfig(config._id);
@@ -652,8 +645,8 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
           ))}
         </div>
       )}
-      
-      {/* Modal for creating/editing configuration */}
+
+      {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -661,11 +654,11 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
               <h2 className="text-xl font-semibold">
                 {editingConfig ? 'Edit Delivery Configuration' : 'Create Delivery Configuration'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               {/* Basic Info */}
               <div>
@@ -677,10 +670,10 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  placeholder="e.g. Lightweight Products, Machines etc."
+                  placeholder="e.g., Standard Delivery, Express Delivery"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
                 <textarea
@@ -691,7 +684,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   placeholder="Describe this delivery configuration..."
                 />
               </div>
-              
+
               {/* Bulk Discount Settings */}
               <div className="border-t border-gray-200 pt-4">
                 <label className="flex items-center gap-2 mb-2">
@@ -705,6 +698,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   />
                   <span className="text-sm font-medium">Enable bulk order discounts for this configuration</span>
                 </label>
+
                 {formData.bulkDiscounts.enabled && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pl-6">
                     <div>
@@ -765,7 +759,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   </div>
                 )}
               </div>
-              
+
               {/* Add Neighborhood Zones Section */}
               <div className="border-t border-gray-200 pt-4">
                 <h4 className="font-medium text-gray-900 mb-3">Add Neighborhoods</h4>
@@ -774,26 +768,38 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   <button
                     type="button"
                     onClick={() => setZoneType('single')}
-                    className={`px-3 py-1 text-sm rounded-lg transition ${zoneType === 'single' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`px-3 py-1 text-sm rounded-lg transition ${
+                      zoneType === 'single'
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                   >
                     Add Single Neighborhood
                   </button>
                   <button
                     type="button"
                     onClick={() => setZoneType('city')}
-                    className={`px-3 py-1 text-sm rounded-lg transition ${zoneType === 'city' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`px-3 py-1 text-sm rounded-lg transition ${
+                      zoneType === 'city'
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                   >
                     Add A Whole City
                   </button>
                   <button
                     type="button"
                     onClick={() => setZoneType('state')}
-                    className={`px-3 py-1 text-sm rounded-lg transition ${zoneType === 'state' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`px-3 py-1 text-sm rounded-lg transition ${
+                      zoneType === 'state'
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                   >
                     Add A Whole State
                   </button>
                 </div>
-                
+
                 {/* Single Neighborhood Selection */}
                 {zoneType === 'single' && (
                   <div className="space-y-3">
@@ -811,6 +817,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                           ))}
                         </select>
                       </div>
+                      
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">City</label>
                         <select
@@ -825,6 +832,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                           ))}
                         </select>
                       </div>
+                      
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Neighborhood</label>
                         <select
@@ -840,7 +848,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         </select>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Delivery Price (₦) <span className="text-red-500">*</span></label>
@@ -855,7 +863,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         />
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="flex items-center gap-2 text-sm">
                         <input
@@ -866,7 +874,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         Enable bulk discount for this neighborhood
                       </label>
                     </div>
-                    
+
                     {zoneDiscount.enabled && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pl-6">
                         <div>
@@ -914,7 +922,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         </div>
                       </div>
                     )}
-                    
+
                     <button
                       type="button"
                       onClick={addSingleNeighborhood}
@@ -926,8 +934,8 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                     </button>
                   </div>
                 )}
-                
-                {/* City Bulk Selection */}
+
+                {/* City Bulk Selection - Add all neighborhoods in a city */}
                 {zoneType === 'city' && (
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -944,6 +952,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                           ))}
                         </select>
                       </div>
+                      
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">City</label>
                         <select
@@ -959,7 +968,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         </select>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Delivery Price (₦) <span className="text-red-500">*</span></label>
                       <input
@@ -975,13 +984,14 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         This price will apply to ALL neighborhoods in {selectedCity || 'selected city'}
                       </p>
                     </div>
-                    
+
                     <div className="p-3 bg-blue-50 rounded-lg">
                       <p className="text-xs text-blue-700">
-                        <strong>Note:</strong> This will add delivery zones for every neighborhood in <strong>{selectedCity || 'the selected city'}</strong>. Existing neighborhoods will be skipped.
+                        <strong>Note:</strong> This will add delivery zones for every neighborhood in <strong>{selectedCity || 'the selected city'}</strong>.
+                        Existing neighborhoods will be skipped.
                       </p>
                     </div>
-                    
+
                     <button
                       type="button"
                       onClick={addCityNeighborhoods}
@@ -1002,7 +1012,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                     </button>
                   </div>
                 )}
-                
+
                 {/* State Bulk Selection */}
                 {zoneType === 'state' && (
                   <div className="space-y-3">
@@ -1022,7 +1032,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         This will add delivery zones for ALL neighborhoods in this state
                       </p>
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Delivery Price (₦) <span className="text-red-500">*</span></label>
                       <input
@@ -1035,18 +1045,19 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         step="50"
                       />
                     </div>
-                    
+
                     <div className="p-3 bg-yellow-50 rounded-lg">
                       <p className="text-xs text-yellow-700">
-                        <strong>Note:</strong> This will add delivery zones for every neighborhood in the selected state. Existing neighborhoods will be skipped.
+                        <strong>Note:</strong> This will add delivery zones for every neighborhood in the selected state.
+                        Existing neighborhoods will be skipped.
                       </p>
                     </div>
-                    
+
                     <button
                       type="button"
                       onClick={addStateNeighborhoods}
                       disabled={!selectedState || !zonePrice || expandingZones}
-                      className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {expandingZones ? (
                         <>
@@ -1055,16 +1066,63 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                         </>
                       ) : (
                         <>
-                          <Globe className="w-4 h-4" />
+                          <Layers className="w-4 h-4" />
                           Add All Neighborhoods in {selectedState || 'State'}
                         </>
                       )}
                     </button>
                   </div>
                 )}
+
+                {/* Nationwide Bulk Selection */}
+                {zoneType === 'nationwide' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Nationwide Delivery Price (₦) <span className="text-red-500">*</span></label>
+                      <input
+                        type="number"
+                        value={zonePrice}
+                        onChange={(e) => setZonePrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        placeholder="e.g., 2000"
+                        min="0"
+                        step="50"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        This price will apply to ALL neighborhoods across Nigeria
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-yellow-50 rounded-lg">
+                      <p className="text-xs text-yellow-700">
+                        <strong>Note:</strong> This will add delivery zones for EVERY neighborhood in ALL 37 states of Nigeria.
+                        Existing neighborhoods will be skipped. This may take a few moments.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addNationwideNeighborhoods}
+                      disabled={!zonePrice || expandingZones}
+                      className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {expandingZones ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" />
+                          Adding Neighborhoods Nationwide...
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="w-4 h-4" />
+                          Add All Neighborhoods in Nigeria
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
-              
-              {/* Existing Zones List */}
+
+              {/* Existing Zones List - Grouped by State and City */}
               {formData.zones.length > 0 && (
                 <div className="border-t border-gray-200 pt-4">
                   <h4 className="font-medium text-gray-900 mb-2">Configured Neighborhoods ({formData.zones.length})</h4>
@@ -1100,12 +1158,14 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                                         />
                                       </div>
                                       <button
+                                        type="button"
                                         onClick={() => setExpandedZone(expandedZone === zone.id ? null : zone.id)}
                                         className="p-0.5 hover:bg-gray-100 rounded"
                                       >
                                         {expandedZone === zone.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                       </button>
                                       <button
+                                        type="button"
                                         onClick={() => removeZone(zone.id)}
                                         className="text-red-500 hover:text-red-600"
                                       >
@@ -1130,23 +1190,17 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
+                  type="button"
                   onClick={saveConfig}
-                  disabled={savingZones}
-                  className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition"
                 >
-                  {savingZones ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader className="w-4 h-4 animate-spin" />
-                      Saving Configuration...
-                    </span>
-                  ) : (
-                    editingConfig ? 'Update Configuration' : 'Create Configuration'
-                  )}
+                  {editingConfig ? 'Update Configuration' : 'Create Configuration'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowModal(false)}
                   className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
                 >
