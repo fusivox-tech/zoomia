@@ -234,15 +234,6 @@ const PaymentPage = () => {
                 <MapPin className="w-5 h-5 text-orange-500" /> Delivery Address
               </h2>
               
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Your Delivery Location:</strong> {buyerLocation.neighborhood}, {buyerLocation.city}, {buyerLocation.state}
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Delivery prices are calculated based on your neighborhood
-                </p>
-              </div>
-              
               {addresses.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-gray-500 mb-3">No saved addresses found</p>
