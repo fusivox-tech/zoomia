@@ -1,8 +1,8 @@
 // DeliveryConfigManager.jsx
 import { useState, useEffect } from 'react';
-import { useData } from './../contexts/DataContext';
+import { useData } from '../../contexts/DataContext';
 import axios from 'axios';
-import API_BASE_URL from './../config';
+import API_BASE_URL from '../../config';
 import { Truck, Plus, X, MapPin, Globe, Layers, Edit2, Trash2, Star, Copy, Check, AlertCircle, ChevronDown, ChevronUp, Tag, Percent, DollarSign, Loader, Building2 } from 'lucide-react';
 
 const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
