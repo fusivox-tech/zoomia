@@ -311,7 +311,7 @@ const LocationWelcomeModal = ({ onLocationSelected }) => {
           {step < 3 && (
             <div className="mt-6 text-center">
               <p className="text-xs text-gray-400">
-                Your full delivery location (including neighborhood) helps us show you accurate product availability
+                Your full delivery location helps us show you accurate product availability
               </p>
             </div>
           )}
