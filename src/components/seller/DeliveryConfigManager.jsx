@@ -1203,7 +1203,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={savingConfig}
                 >
-                  {savingConfig ? 'saving...' : ? editingConfig ? 'Update Configuration' : 'Create Configuration'}
+                  {savingConfig ? 'saving...' : editingConfig ? 'Update Configuration' : 'Create Configuration'}
                 </button>
                 <button
                   type="button"
