@@ -243,9 +243,6 @@ const LocationWelcomeModal = ({ onLocationSelected }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select your Neighborhood <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-orange-600 mb-3">
-                <strong>Required:</strong> Your neighborhood helps sellers provide accurate delivery estimates
-              </p>
               
               {neighborhoodError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
