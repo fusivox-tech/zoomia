@@ -147,7 +147,6 @@ const LocationWelcomeModal = ({ onLocationSelected }) => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Select Your Location</h2>
               <p className="text-sm text-gray-500">Step {step} of 3</p>
-              <p className="text-xs text-orange-500 mt-1">Neighborhood is required</p>
             </div>
           </div>
         </div>

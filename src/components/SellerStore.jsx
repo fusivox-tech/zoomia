@@ -21,8 +21,66 @@ const StarRating = ({ rating, size = 'sm' }) => {
   );
 };
 
+// Helper function to get delivery price from embedded config
+const getDeliveryPriceFromEmbeddedConfig = (deliveryConfig, userState, userCity, userNeighborhood, quantity = 1) => {
+  if (!deliveryConfig || !deliveryConfig.zones) return 0;
+  
+  const zones = deliveryConfig.zones;
+  let matchingZone = null;
+  
+  // Priority: neighborhood > city > state > nationwide
+  if (userNeighborhood) {
+    matchingZone = zones.find(zone => 
+      zone.type === 'neighborhood' &&
+      zone.state?.toLowerCase() === userState?.toLowerCase() &&
+      zone.city?.toLowerCase() === userCity?.toLowerCase() &&
+      zone.neighborhood?.toLowerCase() === userNeighborhood?.toLowerCase()
+    );
+  }
+  
+  if (!matchingZone && userCity) {
+    matchingZone = zones.find(zone =>
+      zone.type === 'city' &&
+      zone.state?.toLowerCase() === userState?.toLowerCase() &&
+      zone.city?.toLowerCase() === userCity?.toLowerCase()
+    );
+  }
+  
+  if (!matchingZone && userState) {
+    matchingZone = zones.find(zone =>
+      zone.type === 'state' &&
+      zone.state?.toLowerCase() === userState?.toLowerCase()
+    );
+  }
+  
+  if (!matchingZone) {
+    matchingZone = zones.find(zone => zone.type === 'nationwide');
+  }
+  
+  if (matchingZone) {
+    let finalPrice = matchingZone.price;
+    
+    const discountConfig = matchingZone.discountOnQuantity?.enabled 
+      ? matchingZone.discountOnQuantity 
+      : deliveryConfig.bulkDiscounts;
+    
+    if (discountConfig?.enabled && quantity >= discountConfig.minQuantity) {
+      if (discountConfig.discountType === 'percentage') {
+        const discountAmount = (finalPrice * discountConfig.discountValue) / 100;
+        finalPrice = finalPrice - discountAmount;
+      } else if (discountConfig.discountType === 'fixed') {
+        finalPrice = Math.max(0, finalPrice - discountConfig.discountValue);
+      }
+    }
+    
+    return finalPrice;
+  }
+  
+  return 0;
+};
+
 // Product Card Component
-const ProductCard = ({ product, formatPrice, navigate }) => (
+const ProductCard = ({ product, formatPrice, navigate, deliveryPrice }) => (
   <div 
     className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer group"
     onClick={() => navigate(`/product/${product._id}`)}
@@ -47,6 +105,9 @@ const ProductCard = ({ product, formatPrice, navigate }) => (
         <span className="text-xs text-gray-500">({product.totalReviews || 0})</span>
       </div>
       <p className="text-orange-600 font-bold text-base">{formatPrice(product.price)}</p>
+      {deliveryPrice === 0 && product.deliveryConfig && (
+        <p className="text-xs text-green-600 mt-1">Free delivery</p>
+      )}
       <p className="text-xs text-gray-400 mt-1">{product.stock > 0 ? 'In Stock' : 'Out of Stock'}</p>
     </div>
   </div>
@@ -104,27 +165,49 @@ const SellerStore = () => {
     hasMore: false,
     total: 0
   });
-  const [activeTab, setActiveTab] = useState('products'); // 'products' or 'reviews'
+  const [activeTab, setActiveTab] = useState('products');
   const [sortOption, setSortOption] = useState('latest');
+  
+  // User location state
+  const [userLocation, setUserLocation] = useState(null);
+  const [hasLocation, setHasLocation] = useState(false);
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(price);
-  };
+  // Load user's location from localStorage
+  useEffect(() => {
+    const savedCity = localStorage.getItem('buyerCity');
+    const savedState = localStorage.getItem('buyerState');
+    const savedNeighborhood = localStorage.getItem('buyerNeighborhood');
+    const locationSelected = localStorage.getItem('locationSelected');
+    
+    if (savedCity && savedState && savedNeighborhood && locationSelected === 'true') {
+      setUserLocation({ city: savedCity, state: savedState, neighborhood: savedNeighborhood });
+      setHasLocation(true);
+    } else {
+      setHasLocation(false);
+    }
+  }, []);
 
   // Fetch seller info and initial products/reviews
   useEffect(() => {
-    fetchSellerInfo();
-  }, [sellerId]);
+    if (hasLocation && userLocation) {
+      fetchSellerInfo();
+    } else if (!hasLocation) {
+      // Still fetch but without location filtering
+      fetchSellerInfo();
+    }
+  }, [sellerId, hasLocation, userLocation]);
 
   const fetchSellerInfo = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/seller/store/${sellerId}`);
+      let url = `${API_BASE_URL}/seller/store/${sellerId}`;
+      
+      // Add location parameters if user has location set
+      if (hasLocation && userLocation) {
+        url += `?city=${encodeURIComponent(userLocation.city)}&state=${encodeURIComponent(userLocation.state)}&neighborhood=${encodeURIComponent(userLocation.neighborhood)}`;
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.success) {
@@ -156,10 +239,14 @@ const SellerStore = () => {
     
     setLoadingProducts(true);
     try {
-      const nextPage = productPagination.currentPage + 1;
-      const response = await fetch(
-        `${API_BASE_URL}/seller/store/${sellerId}/products?page=${nextPage}&limit=12&sort=${sortOption}`
-      );
+      let url = `${API_BASE_URL}/seller/store/${sellerId}/products?page=${productPagination.currentPage + 1}&limit=12&sort=${sortOption}`;
+      
+      // Add location parameters if user has location set
+      if (hasLocation && userLocation) {
+        url += `&city=${encodeURIComponent(userLocation.city)}&state=${encodeURIComponent(userLocation.state)}&neighborhood=${encodeURIComponent(userLocation.neighborhood)}`;
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.success) {
@@ -207,9 +294,14 @@ const SellerStore = () => {
     setSortOption(sort);
     setLoadingProducts(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/seller/store/${sellerId}/products?page=1&limit=12&sort=${sort}`
-      );
+      let url = `${API_BASE_URL}/seller/store/${sellerId}/products?page=1&limit=12&sort=${sort}`;
+      
+      // Add location parameters if user has location set
+      if (hasLocation && userLocation) {
+        url += `&city=${encodeURIComponent(userLocation.city)}&state=${encodeURIComponent(userLocation.state)}&neighborhood=${encodeURIComponent(userLocation.neighborhood)}`;
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.success) {
@@ -226,6 +318,40 @@ const SellerStore = () => {
       setLoadingProducts(false);
     }
   };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(price);
+  };
+
+  // Show location warning if no location selected
+  if (!hasLocation && !loading) {
+    return (
+      <div className="w-full px-4 py-12 text-center">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+            <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Delivery Location Required
+            </h2>
+            <p className="text-gray-500 mb-4 max-w-md mx-auto">
+              Please set your delivery location (including neighborhood) to see products available from this seller.
+            </p>
+            <button
+              onClick={() => navigate('/profile')}
+              className="px-6 py-2 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600"
+            >
+              Set Delivery Location
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -284,12 +410,12 @@ const SellerStore = () => {
         {/* Seller Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
               {seller.profileImage ? (
                 <img 
                   src={seller.profileImage} 
                   alt={seller.businessName} 
-                  className="w-full h-full rounded-full object-cover"
+                  className="w-full h-full rounded object-cover"
                 />
               ) : (
                 <span className="text-3xl font-bold text-gray-400">
@@ -305,7 +431,7 @@ const SellerStore = () => {
                 <div className="flex items-center gap-1">
                   <StarRating rating={seller.averageRating} size="sm" />
                   <span className="text-gray-600 ml-1">
-                    {seller.averageRating?.toFixed(1)} ({seller.totalReviews} review{seller.totalReviews > 1 ? 's' : ''})
+                    {seller.averageRating?.toFixed(1)}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-gray-500">
@@ -314,7 +440,6 @@ const SellerStore = () => {
                 </div>
               </div>
             </div>
-            
           </div>
         </div>
         
@@ -361,14 +486,20 @@ const SellerStore = () => {
                   <option value="rating">Highest Rated</option>
                 </select>
               </div>
-              <p className="text-sm text-gray-500">{productPagination.total} products found</p>
             </div>
             
-            {/* Products Grid - Responsive with minimum width 130px */}
+            {/* Products Grid */}
             {products.length === 0 ? (
               <div className="text-center py-12">
                 <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No products available</p>
+                <p className="text-gray-500">No products available for delivery to {userLocation?.neighborhood}</p>
+                <p className="text-sm text-gray-400 mt-2">Try changing your delivery location or check back later</p>
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="mt-4 text-orange-500 hover:text-orange-600"
+                >
+                  Change Delivery Location →
+                </button>
               </div>
             ) : (
               <>
@@ -377,14 +508,23 @@ const SellerStore = () => {
                   gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
                   gap: '1rem'
                 }}>
-                  {products.map((product) => (
-                    <ProductCard
-                      key={product._id}
-                      product={product}
-                      formatPrice={formatPrice}
-                      navigate={navigate}
-                    />
-                  ))}
+                  {products.map((product) => {
+                    const deliveryPrice = getDeliveryPriceFromEmbeddedConfig(
+                      product.deliveryConfig,
+                      userLocation?.state,
+                      userLocation?.city,
+                      userLocation?.neighborhood
+                    );
+                    return (
+                      <ProductCard
+                        key={product._id}
+                        product={product}
+                        formatPrice={formatPrice}
+                        navigate={navigate}
+                        deliveryPrice={deliveryPrice}
+                      />
+                    );
+                  })}
                 </div>
                 
                 {/* Load More Products Button */}
