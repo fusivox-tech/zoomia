@@ -170,6 +170,7 @@ const SellerStore = () => {
   });
   const [activeTab, setActiveTab] = useState('products');
   const [sortOption, setSortOption] = useState('latest');
+  const [fetchingError, setFetchingError] = useState(null);
   
   // User location state
   const [userLocation, setUserLocation] = useState(null);
@@ -204,13 +205,13 @@ const SellerStore = () => {
   const fetchSellerInfo = async () => {
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}/seller/store/${sellerId}`;
+      const savedCity = localStorage.getItem('buyerCity');
+      const savedState = localStorage.getItem('buyerState');
+      const savedNeighborhood = localStorage.getItem('buyerNeighborhood');
+      const locationSelected = localStorage.getItem('locationSelected');
       
-      // Add location parameters only if user has location set
-      if (hasLocation && userLocation) {
-        url += `?city=${encodeURIComponent(userLocation.city)}&state=${encodeURIComponent(userLocation.state)}&neighborhood=${encodeURIComponent(userLocation.neighborhood)}`;
-      }
-      
+      let url = `${API_BASE_URL}/seller/store/${sellerId}?city=${savedCity}&state=${savedState}&neighborhood=${savedNeighborhood}`;
+
       const response = await fetch(url);
       const data = await response.json();
       
@@ -229,9 +230,11 @@ const SellerStore = () => {
           hasMore: data.data.reviews.length >= 5
         }));
       } else {
+        setFetchingError(data.message);
         console.error('Failed to fetch seller info:', data.message);
       }
     } catch (error) {
+      setFetchingError(error)
       console.error('Error fetching seller:', error);
     } finally {
       setLoading(false);
@@ -397,6 +400,7 @@ const SellerStore = () => {
       <div className="w-full px-4 py-12 text-center">
         <div className="max-w-7xl mx-auto">
           <p className="text-gray-500 text-lg">Seller not found</p>
+          <p>{fetchingError}</p>
           <button 
             onClick={() => navigate('/')}
             className="mt-4 text-orange-500 hover:text-orange-600"
@@ -414,12 +418,12 @@ const SellerStore = () => {
         {/* Seller Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
               {seller.profileImage ? (
                 <img 
                   src={seller.profileImage} 
                   alt={seller.businessName} 
-                  className="w-full h-full rounded-full object-cover"
+                  className="w-full h-full rounded object-cover"
                 />
               ) : (
                 <span className="text-3xl font-bold text-gray-400">
@@ -434,20 +438,11 @@ const SellerStore = () => {
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <div className="flex items-center gap-1">
                   <StarRating rating={seller.averageRating} size="sm" />
-                  <span className="text-gray-600 ml-1">
-                    {seller.averageRating?.toFixed(1)} ({seller.totalReviews} review{seller.totalReviews > 1 ? 's' : ''})
-                  </span>
                 </div>
                 <div className="flex items-center gap-1 text-gray-500">
                   <Package className="w-4 h-4" />
                   <span>Seller since {new Date(seller.joinedAt).getFullYear()}</span>
                 </div>
-                {hasLocation && userLocation && products.length > 0 && (
-                  <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                    <MapPin className="w-3 h-3" />
-                    <span className="text-xs">Delivering to {userLocation.neighborhood}</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -497,7 +492,7 @@ const SellerStore = () => {
                 </select>
               </div>
               <p className="text-sm text-gray-500">
-                {productPagination.total} product{productPagination.total !== 1 ? 's' : ''} available for delivery
+                {productPagination.total} Products
               </p>
             </div>
             
