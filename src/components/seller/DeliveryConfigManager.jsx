@@ -711,6 +711,7 @@ const DeliveryConfigManager = ({
 
                 <div className="flex items-center gap-1">
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       editConfig(config);
@@ -722,6 +723,7 @@ const DeliveryConfigManager = ({
 
                   {!config.isDefault && (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setAsDefault(config._id);
@@ -733,6 +735,7 @@ const DeliveryConfigManager = ({
                   )}
 
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteConfig(config._id);
