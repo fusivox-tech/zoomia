@@ -1,5 +1,5 @@
 // components/SellerStore.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 import { Star, MapPin, Package, ShoppingBag, ChevronRight, ChevronLeft, Filter, X } from 'lucide-react';
@@ -105,6 +105,9 @@ const ProductCard = ({ product, formatPrice, navigate, deliveryPrice }) => (
         <span className="text-xs text-gray-500">({product.totalReviews || 0})</span>
       </div>
       <p className="text-orange-600 font-bold text-base">{formatPrice(product.price)}</p>
+      {deliveryPrice > 0 && (
+        <p className="text-xs text-gray-500 mt-1">Delivery: {formatPrice(deliveryPrice)}</p>
+      )}
       {deliveryPrice === 0 && product.deliveryConfig && (
         <p className="text-xs text-green-600 mt-1">Free delivery</p>
       )}
@@ -171,8 +174,9 @@ const SellerStore = () => {
   // User location state
   const [userLocation, setUserLocation] = useState(null);
   const [hasLocation, setHasLocation] = useState(false);
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
 
-  // Load user's location from localStorage
+  // Load user's location from localStorage once on mount
   useEffect(() => {
     const savedCity = localStorage.getItem('buyerCity');
     const savedState = localStorage.getItem('buyerState');
@@ -182,18 +186,18 @@ const SellerStore = () => {
     if (savedCity && savedState && savedNeighborhood && locationSelected === 'true') {
       setUserLocation({ city: savedCity, state: savedState, neighborhood: savedNeighborhood });
       setHasLocation(true);
-    } else {
-      setHasLocation(false);
     }
   }, []);
 
-  // Fetch seller info and initial products/reviews
+  // Fetch seller info only once when component mounts OR when location is determined
   useEffect(() => {
-    if (hasLocation && userLocation) {
-      fetchSellerInfo();
-    } else if (!hasLocation) {
-      // Still fetch but without location filtering
-      fetchSellerInfo();
+    // Only fetch if we have location OR if we've determined there's no location
+    // This prevents multiple fetches
+    if (!initialFetchDone) {
+      if (hasLocation || (userLocation === null && !hasLocation)) {
+        fetchSellerInfo();
+        setInitialFetchDone(true);
+      }
     }
   }, [sellerId, hasLocation, userLocation]);
 
@@ -202,7 +206,7 @@ const SellerStore = () => {
     try {
       let url = `${API_BASE_URL}/seller/store/${sellerId}`;
       
-      // Add location parameters if user has location set
+      // Add location parameters only if user has location set
       if (hasLocation && userLocation) {
         url += `?city=${encodeURIComponent(userLocation.city)}&state=${encodeURIComponent(userLocation.state)}&neighborhood=${encodeURIComponent(userLocation.neighborhood)}`;
       }
@@ -328,8 +332,8 @@ const SellerStore = () => {
     }).format(price);
   };
 
-  // Show location warning if no location selected
-  if (!hasLocation && !loading) {
+  // Show location warning if no location selected (and not loading)
+  if (!hasLocation && !loading && initialFetchDone) {
     return (
       <div className="w-full px-4 py-12 text-center">
         <div className="max-w-7xl mx-auto">
@@ -410,12 +414,12 @@ const SellerStore = () => {
         {/* Seller Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
               {seller.profileImage ? (
                 <img 
                   src={seller.profileImage} 
                   alt={seller.businessName} 
-                  className="w-full h-full rounded object-cover"
+                  className="w-full h-full rounded-full object-cover"
                 />
               ) : (
                 <span className="text-3xl font-bold text-gray-400">
@@ -431,13 +435,19 @@ const SellerStore = () => {
                 <div className="flex items-center gap-1">
                   <StarRating rating={seller.averageRating} size="sm" />
                   <span className="text-gray-600 ml-1">
-                    {seller.averageRating?.toFixed(1)}
+                    {seller.averageRating?.toFixed(1)} ({seller.totalReviews} review{seller.totalReviews > 1 ? 's' : ''})
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-gray-500">
                   <Package className="w-4 h-4" />
                   <span>Seller since {new Date(seller.joinedAt).getFullYear()}</span>
                 </div>
+                {hasLocation && userLocation && products.length > 0 && (
+                  <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                    <MapPin className="w-3 h-3" />
+                    <span className="text-xs">Delivering to {userLocation.neighborhood}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -486,6 +496,9 @@ const SellerStore = () => {
                   <option value="rating">Highest Rated</option>
                 </select>
               </div>
+              <p className="text-sm text-gray-500">
+                {productPagination.total} product{productPagination.total !== 1 ? 's' : ''} available for delivery
+              </p>
             </div>
             
             {/* Products Grid */}
