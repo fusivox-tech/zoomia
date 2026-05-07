@@ -1,4 +1,3 @@
-// PaymentVerification.jsx - Updated to avoid double-clearing
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -44,18 +43,14 @@ const PaymentVerification = () => {
       const response = await axios.get(`${API_BASE_URL}/payment/verify/${reference}`);
       
       if (response.data.success) {
-        // Get the pending order data to know which items were purchased
         const pendingOrderData = JSON.parse(localStorage.getItem('pendingOrderData') || '{}');
-        const purchasedItemIds = pendingOrderData.items?.map(item => item.productId) || [];
+        const purchasedItemIds = pendingOrderData.items?.map(item => item.id) || [];
         
-        // Only clear the purchased items from cart, not the entire cart
         const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
         const remainingCart = currentCart.filter(item => !purchasedItemIds.includes(item.id));
         
-        // Update localStorage
         localStorage.setItem('cart', JSON.stringify(remainingCart));
         
-        // If user is logged in, sync with backend (backend will also filter purchased items)
         const token = localStorage.getItem('token');
         if (token) {
           await axios.post(`${API_BASE_URL}/cart/sync`, 
@@ -63,13 +58,11 @@ const PaymentVerification = () => {
             { headers: { Authorization: `Bearer ${token}` } }
           );
           
-          // Refresh user data to update cart count in UI
           if (fetchUserData) {
             fetchUserData();
           }
         }
         
-        // Save order confirmation
         const orderConfirmation = {
           reference: reference,
           amount: response.data.data.amount / 100,
@@ -79,9 +72,10 @@ const PaymentVerification = () => {
         };
         localStorage.setItem('lastOrder', JSON.stringify(orderConfirmation));
         
-        // Clear pending data
         localStorage.removeItem('pendingPaymentRef');
         localStorage.removeItem('pendingOrderData');
+        localStorage.removeItem('selectedCartItems');
+        localStorage.removeItem('checkoutTotals');
         
         setStatus('success');
         setMessage(response.data.message || 'Payment successful! Your order has been placed.');

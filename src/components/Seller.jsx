@@ -3,714 +3,10 @@ import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config';
-import SellerDeliveryZones from './SellerDeliveryZones';
 import { Store, Package, Truck, Shield, Percent, Users, TrendingUp, ArrowRight, CheckCircle, Star } from 'lucide-react';
-
-const SellerOrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled, onUpdateStatus }) => {
-  const { showSuccess, showError } = useData(); 
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState('');
-  const [cancelling, setCancelling] = useState(false);
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
-  
-  const orderStatus = order.status || 'pending';
-  const orderDate = order.createdAt;
-  
-  const now = new Date();
-  const orderCreatedAt = new Date(orderDate);
-  const daysSinceOrder = (now - orderCreatedAt) / (1000 * 60 * 60 * 24);
-  const canCancel = order.status !== 'delivered' && !order.deliveryDisputed && daysSinceOrder <= 7;
-  
-  useEffect(() => {
-    if (!canCancel) return;
-    
-    const timer = setInterval(() => {
-      const now = new Date();
-      const elapsed = (now - orderCreatedAt) / 1000;
-      const remaining = 7 * 24 * 60 * 60 - elapsed;
-      
-      if (remaining <= 0) {
-        clearInterval(timer);
-        setTimeLeft({ days: 0, hours: 0, minutes: 0 });
-      } else {
-        const days = Math.floor(remaining / (24 * 3600));
-        const hours = Math.floor((remaining % (24 * 3600)) / 3600);
-        const minutes = Math.floor((remaining % 3600) / 60);
-        setTimeLeft({ days, hours, minutes });
-      }
-    }, 60000);
-    
-    return () => clearInterval(timer);
-  }, [canCancel, orderCreatedAt]);
-  
-  const handleCancelOrder = async () => {
-    setCancelling(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE_URL}/orders/${order._id}/cancel`,
-        { cancellationReason, cancelledBy: 'seller' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.data.success) {
-        showSuccess(response.data.message);
-        if (onOrderCancelled) onOrderCancelled();
-        setShowCancelModal(false);
-      }
-    } catch (error) {
-      showError(error.response?.data?.message || 'Failed to cancel order');
-    } finally {
-      setCancelling(false);
-    }
-  };
-  
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
-      <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-white text-sm font-mono">
-              Order #{order.reference?.slice(-8) || order._id.slice(-8)}
-            </p>
-            <p className="text-orange-100 text-xs mt-1">
-              {new Date(orderDate).toLocaleDateString()} at {new Date(orderDate).toLocaleTimeString()}
-            </p>
-          </div>
-          <span className={`px-3 py-1 text-xs rounded-full bg-white/20 text-white capitalize`}>
-            {orderStatus}
-          </span>
-        </div>
-      </div>
-      
-      <div className="p-6">
-        {orderStatus === 'cancelled' && (
-          <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-red-800">Order Cancelled</p>
-                <p className="text-xs text-red-700">
-                  Cancelled by: {order.cancelledBy === 'seller' ? 'You (Seller)' : 'Customer'}
-                </p>
-                {order.cancellationReason && (
-                  <p className="text-xs text-red-700 mt-1">Reason: {order.cancellationReason}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-          <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-            <span className="text-orange-500 text-lg font-semibold">
-              {order.buyerFullName?.charAt(0) || 'C'}
-            </span>
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-900">{order.buyerFullName || 'Guest Customer'}</p>
-            <p className="text-sm text-gray-500">{order.buyerEmail}</p>
-            {order.buyerPhone && (
-              <a href={`tel:${order.buyerPhone}`} className="text-sm text-orange-500 hover:text-orange-600 inline-flex items-center gap-1 mt-1">
-                📞 {order.buyerPhone}
-              </a>
-            )}
-          </div>
-        </div>
-        
-        <div className="mb-4">
-          <p className="text-sm font-medium text-gray-700 mb-2">Items Ordered ({order.items?.length || 0})</p>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {order.items?.map((item, idx) => (
-              <div key={idx} className="flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                  {item.product?.images?.[0] && (
-                    <img src={item.product.images[0]} alt={item.title} className="w-8 h-8 rounded object-cover" />
-                  )}
-                  <span className="text-gray-700">{item.quantity}x {item.title}</span>
-                </div>
-                <span className="font-medium text-gray-900">₦{(item.price * item.quantity).toLocaleString()}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {order.deliveryAddress && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">📍 Delivery Address</p>
-            <p className="text-xs text-gray-600">
-              {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state}
-            </p>
-            {order.deliveryAddress.landmark && (
-              <p className="text-xs text-gray-500 mt-1">📍 Landmark: {order.deliveryAddress.landmark}</p>
-            )}
-            {order.deliveryAddress.askFor && (
-              <p className="text-xs text-gray-500">👤 Ask for: {order.deliveryAddress.askFor}</p>
-            )}
-          </div>
-        )}
-        
-        {order.trackingInfo && (orderStatus === 'shipped' || orderStatus === 'processing') && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-xs font-medium text-blue-800 mb-1">📦 Tracking Information</p>
-            <p className="text-xs text-blue-700">Tracking #: {order.trackingInfo.trackingNumber}</p>
-            <p className="text-xs text-blue-700">Carrier: {order.trackingInfo.carrier}</p>
-          </div>
-        )}
-        
-        {canCancel && orderStatus !== 'cancelled' && (
-          <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-yellow-800">Seller Cancellation Available</p>
-                <p className="text-xs text-yellow-700">You can cancel this order within:</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-yellow-800">
-                  {timeLeft.days}d {String(timeLeft.hours).padStart(2, '0')}h {String(timeLeft.minutes).padStart(2, '0')}m
-                </p>
-                <p className="text-xs text-yellow-700">(Too many order cancelation will result in suspension of your seller account)</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowCancelModal(true)}
-              className="mt-3 w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
-            >
-              Cancel Order
-            </button>
-          </div>
-        )}
-        
-        <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-          <div>
-            <p className="text-xs text-gray-500">Total Amount</p>
-            <p className="text-xl font-bold text-orange-600">₦{order.total?.toLocaleString() || 0}</p>
-          </div>
-          {orderStatus !== 'cancelled' && orderStatus !== 'delivered' && (
-            <button
-              onClick={() => onUpdateStatus(order)}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
-            >
-              Update Status
-            </button>
-          )}
-        </div>
-      </div>
-      
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-xl font-semibold text-gray-900">Cancel Order</h2>
-              <p className="text-sm text-gray-500 mt-1">Please tell us why you're cancelling this order (optional)</p>
-            </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cancellation Reason</label>
-                <textarea
-                  value={cancellationReason}
-                  onChange={(e) => setCancellationReason(e.target.value)}
-                  rows="4"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="e.g., Out of stock, Customer requested cancellation, Shipping issues, etc."
-                />
-              </div>
-              <div className="p-3 bg-blue-50 rounded-lg mb-4">
-                <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> As a seller, cancelling this order will notify the customer. 
-                  <strong>No penalty fee applies</strong> to seller-initiated cancellations. 
-                  The customer will receive a <strong>100% full refund</strong>.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCancelOrder}
-                  disabled={cancelling}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 disabled:opacity-50"
-                >
-                  {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCancelModal(false);
-                    setCancellationReason('');
-                  }}
-                  className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
-                >
-                  Go Back
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const ProductListingModal = ({ 
-  show, 
-  editingProduct, 
-  formData, 
-  loading, 
-  selectedCategory, 
-  customCategory, 
-  categories, 
-  imagePreviews, 
-  newTag,
-  variantForm,
-  showVariantModal,
-  onClose, 
-  onSubmit, 
-  onInputChange, 
-  onImageUpload, 
-  onRemoveImage, 
-  onAddTag, 
-  onRemoveTag, 
-  onSetNewTag,
-  onSetSelectedCategory,
-  onSetCustomCategory,
-  onSetShowVariantModal,
-  onSetVariantForm,
-  onAddVariant,
-  onRemoveVariant,
-  onDeliveryZonesUpdate,
-  onSetEditingProduct,
-  editingProductId,
-  currentZones,
-  selectedCategories,
-  setSelectedCategories,
-  showCategoryDropdown,
-  setShowCategoryDropdown
-}) => {
-  if (!show) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-xl">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-50 rounded-t-xl">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {editingProduct ? 'Edit Product' : 'Create New Listing'}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        
-        <div className="p-6">
-          <form onSubmit={onSubmit}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Title <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={onInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Enter product title"
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-red-500">*</span></label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={onInputChange}
-                rows="4"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Describe your product in detail..."
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (NGN) <span className="text-red-500">*</span></label>
-                <input
-                  type="number"
-                  name="price"
-                  value={formData.price}
-                  onChange={onInputChange}
-                  step="0.01"
-                  min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
-                <input
-                  type="number"
-                  name="stock"
-                  value={formData.stock}
-                  onChange={onInputChange}
-                  min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-
-            {/* Categories - Multi-Select with Checkboxes */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categories <span className="text-red-500">*</span>
-              </label>
-              
-              {/* Category Dropdown Button */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-left flex justify-between items-center bg-white"
-                >
-                  <span className={selectedCategories.length === 0 ? "text-gray-400" : "text-gray-700"}>
-                    {selectedCategories.length === 0 
-                      ? "Select categories..." 
-                      : `${selectedCategories.length} category${selectedCategories.length !== 1 ? 'ies' : ''} selected`}
-                  </span>
-                  <svg className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                
-                {/* Category Dropdown Options */}
-                {showCategoryDropdown && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-0" 
-                      onClick={() => setShowCategoryDropdown(false)}
-                    />
-                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {/* Select All Option */}
-                      <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
-                        <label className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedCategories.length === categories.length}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                const allCategories = [...categories];
-                                setSelectedCategories(allCategories);
-                                onInputChange({ target: { name: 'categories', value: allCategories } });
-                              } else {
-                                setSelectedCategories([]);
-                                onInputChange({ target: { name: 'categories', value: [] } });
-                              }
-                            }}
-                            className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-                          />
-                          <span className="ml-2 text-sm font-medium text-gray-700">Select All Categories</span>
-                        </label>
-                      </div>
-                      
-                      {/* Individual Category Options */}
-                      <div className="p-2">
-                        {categories.map(cat => (
-                          <label key={cat} className="flex items-center p-2 hover:bg-orange-50 rounded cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedCategories.includes(cat)}
-                              onChange={(e) => {
-                                let updatedCategories;
-                                if (e.target.checked) {
-                                  updatedCategories = [...selectedCategories, cat];
-                                } else {
-                                  updatedCategories = selectedCategories.filter(c => c !== cat);
-                                }
-                                setSelectedCategories(updatedCategories);
-                                onInputChange({ target: { name: 'categories', value: updatedCategories } });
-                              }}
-                              className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">{cat}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-              
-              {/* Selected Categories Tags */}
-              {selectedCategories.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedCategories.map((cat, index) => (
-                    <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
-                      {cat}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updatedCategories = selectedCategories.filter((_, i) => i !== index);
-                          setSelectedCategories(updatedCategories);
-                          onInputChange({ target: { name: 'categories', value: updatedCategories } });
-                        }}
-                        className="ml-2 text-orange-500 hover:text-orange-700"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-gray-500 mt-1">Select one or more categories for your product</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
-                <select
-                  name="condition"
-                  value={formData.condition}
-                  onChange={onInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="new">New</option>
-                  <option value="like-new">Like New</option>
-                  <option value="good">Good</option>
-                  <option value="fair">Fair</option>
-                  <option value="poor">Poor</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
-                <input
-                  type="text"
-                  name="brand"
-                  value={formData.brand}
-                  onChange={onInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Brand name"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">SKU (Stock Keeping Unit)</label>
-                <input
-                  type="text"
-                  name="sku"
-                  value={formData.sku}
-                  onChange={onInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Unique product code"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
-                <input
-                  type="number"
-                  name="weight"
-                  value={formData.weight}
-                  onChange={onInputChange}
-                  step="0.01"
-                  min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions (L × W × H)</label>
-              <div className="flex gap-1">
-                <input
-                  type="text"
-                  name="dimensions.length"
-                  value={formData.dimensions.length}
-                  onChange={onInputChange}
-                  className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
-                  placeholder="L"
-                />
-                <input
-                  type="text"
-                  name="dimensions.width"
-                  value={formData.dimensions.width}
-                  onChange={onInputChange}
-                  className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
-                  placeholder="W"
-                />
-                <input
-                  type="text"
-                  name="dimensions.height"
-                  value={formData.dimensions.height}
-                  onChange={onInputChange}
-                  className="w-1/3 px-2 py-2 border border-gray-300 rounded-lg text-sm"
-                  placeholder="H"
-                />
-              </div>
-            </div>
-
-            {editingProduct && formData.images.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Current Images</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {formData.images.map((img, index) => (
-                    <div key={index} className="relative">
-                      <img src={img} alt={`Product ${index}`} className="w-full h-20 object-cover rounded-lg" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-<div className="mb-4">
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    {editingProduct ? 'Add New Images' : 'Product Images'} <span className="text-red-500">*</span>
-  </label>
-  <input
-    type="file"
-    accept="image/*"
-    multiple
-    onChange={onImageUpload}
-    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-  />
-  <p className="text-xs text-gray-500 mt-1">PNG, JPG, JPEG up to 5MB each (Max 10 images)</p>
-  
-  {/* Show warning if no images */}
-  {!editingProduct && formData.images.length === 0 && imagePreviews.length === 0 && (
-    <p className="text-xs text-red-500 mt-1">⚠️ Please upload at least one product image</p>
-  )}
-  
-  {imagePreviews.length > 0 && (
-    <div className="mt-2 flex gap-2 flex-wrap">
-      {imagePreviews.map((preview, index) => (
-        <div key={index} className="relative">
-          <img src={preview} alt="Preview" className="w-16 h-16 object-cover rounded" />
-          <button
-            type="button"
-            onClick={() => onRemoveImage(index)}
-            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-          >
-            ×
-          </button>
-        </div>
-      ))}
-    </div>
-  )}
-  
-  {/* Show existing images for edit mode */}
-  {editingProduct && formData.images.length > 0 && imagePreviews.length === 0 && (
-    <div className="mt-2">
-      <p className="text-xs text-gray-500 mb-1">Current images:</p>
-      <div className="flex gap-2 flex-wrap">
-        {formData.images.map((img, index) => (
-          <div key={index} className="relative">
-            <img src={img} alt={`Product ${index}`} className="w-16 h-16 object-cover rounded" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )}
-</div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-              <div className="flex flex-col md:flex-row gap-2 mb-2">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => onSetNewTag(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), onAddTag())}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Add tags (e.g., wireless, bluetooth)"
-                />
-                <button
-                  type="button"
-                  onClick={onAddTag}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                >
-                  Add
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {formData.tags.map((tag, index) => (
-                  <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => onRemoveTag(tag)}
-                      className="ml-2 text-orange-500 hover:text-orange-700"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-            
-            <SellerDeliveryZones
-              productId={editingProductId}
-              currentZones={currentZones}
-              onZonesUpdate={onDeliveryZonesUpdate}
-            />
-
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-md font-medium">Variants (Size, Color, etc.)</h3>
-                <button
-                  type="button"
-                  onClick={() => onSetShowVariantModal(true)}
-                  className="text-orange-500 hover:text-orange-600 text-sm"
-                >
-                  + Add Variant
-                </button>
-              </div>
-              
-              {formData.variants.length > 0 && (
-                <div className="space-y-2">
-                  {formData.variants.map((variant) => (
-                    <div key={variant.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">{variant.name}</p>
-                        <p className="text-xs text-gray-600">Price: ₦{variant.price} | Stock: {variant.stock || 'Unlimited'}</p>
-                        {variant.sku && <p className="text-xs text-gray-500">SKU: {variant.sku}</p>}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onRemoveVariant(variant.id)}
-                        className="text-red-500 hover:text-red-600 text-sm"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : (editingProduct ? 'Update Product' : 'Create Listing')}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-};
+import SellerOrderCard from './seller/SellerOrderCard';
+import ProductListingModal from './seller/ProductListingModal';
+import ReviewsSection from './seller/ReviewsSection';
 
 const Seller = () => {
   const { user, showError, showSuccess } = useData();
@@ -721,6 +17,10 @@ const Seller = () => {
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('inventory');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  
+  // Delivery configuration states
+  const [selectedDeliveryConfigId, setSelectedDeliveryConfigId] = useState(null);
+  const [selectedDeliveryConfig, setSelectedDeliveryConfig] = useState(null);
   
   const [showListingModal, setShowListingModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -745,7 +45,7 @@ const Seller = () => {
     },
     tags: [],
     variants: [],
-    deliveryZones: []
+    deliveryConfigId: null
   });
 
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -776,10 +76,6 @@ const Seller = () => {
     'Appliances', 'Phones & Tablets', 'Health & Beauty', 'Home & Office', 
     'Electronics', 'Fashion', 'Supermarket', 'Computing', 'Baby Product', 'Gaming', 'Other'
   ];
-  
-  const handleDeliveryZonesUpdate = useCallback((zones) => {
-    setFormData(prev => ({ ...prev, deliveryZones: zones }));
-  }, []);
 
   useEffect(() => {
     const token = getAuthToken();
@@ -962,88 +258,91 @@ const Seller = () => {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
 
-  // Validate all required fields including categories
-  if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
-    showError('Please fill in all required fields and select at least one category');
-    setLoading(false);
-    return;
-  }
-
-  // Validate that at least one image is uploaded
-  const totalImages = formData.images.length + selectedImages.length;
-  if (totalImages === 0) {
-    showError('Please upload at least one product image');
-    setLoading(false);
-    return;
-  }
-
-  // Validate that at least one delivery zone is added
-  if (formData.deliveryZones.length === 0) {
-    showError('Please add at least one delivery zone for your product');
-    setLoading(false);
-    return;
-  }
-
-  // Validate that all delivery zones have prices set
-  const zonesWithoutPrice = formData.deliveryZones.filter(zone => !zone.price || zone.price <= 0);
-  if (zonesWithoutPrice.length > 0) {
-    showError(`Please set delivery prices for all zones. ${zonesWithoutPrice.length} zone(s) missing prices.`);
-    setLoading(false);
-    return;
-  }
-
-  try {
-    let uploadedImageUrls = [];
-    if (selectedImages.length > 0) {
-      uploadedImageUrls = await uploadImages();
+    // Validate all required fields including categories
+    if (!formData.title || !formData.description || !formData.price || formData.categories.length === 0) {
+      showError('Please fill in all required fields and select at least one category');
+      setLoading(false);
+      return;
     }
 
-    const productData = {
-      ...formData,
-      sellerId: user._id,
-      sellerName: user.businessName || user.fullName,
-      sellerEmail: user.email,
-      images: [...formData.images, ...uploadedImageUrls],
-      sellerPhone: user.phone,
-      category: formData.categories[0],
-      categories: formData.categories
-    };
-
-    const token = getAuthToken();
-    let response;
-    
-    if (editingProduct) {
-      response = await axios.put(`${API_BASE_URL}/products/${editingProduct._id}`, productData, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-      });
-    } else {
-      response = await axios.post(`${API_BASE_URL}/products`, productData, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-      });
+    // Validate that at least one image is uploaded
+    const totalImages = formData.images.length + selectedImages.length;
+    if (totalImages === 0) {
+      showError('Please upload at least one product image');
+      setLoading(false);
+      return;
     }
 
-    if (response.data.success) {
-      showSuccess(editingProduct ? 'Product updated successfully!' : 'Product listed successfully!');
-      resetForm();
-      await fetchSellerProducts();
-      setShowListingModal(false);
+    // Validate that a delivery configuration is selected
+    if (!formData.deliveryConfigId) {
+      showError('Please select a delivery configuration for your product');
+      setLoading(false);
+      return;
     }
-  } catch (error) {
-    console.error('Error saving product:', error);
-    if (error.response?.status === 401) {
-      showError('Session expired. Please login again.');
-      setTimeout(() => navigate('/login'), 2000);
-    } else {
-      showError(error.response?.data?.message || 'Failed to save product');
+
+    try {
+      let uploadedImageUrls = [];
+      if (selectedImages.length > 0) {
+        uploadedImageUrls = await uploadImages();
+      }
+
+      const productData = {
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        categories: formData.categories,
+        stock: parseInt(formData.stock) || 0,
+        images: [...formData.images, ...uploadedImageUrls],
+        condition: formData.condition,
+        brand: formData.brand,
+        sku: formData.sku,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        dimensions: formData.dimensions,
+        tags: formData.tags,
+        variants: formData.variants,
+        deliveryConfigId: formData.deliveryConfigId,
+        sellerId: user._id,
+        sellerName: user.businessName || user.fullName,
+        sellerEmail: user.email,
+        sellerPhone: user.phone,
+        category: formData.categories[0]
+      };
+
+      const token = getAuthToken();
+      let response;
+      
+      if (editingProduct) {
+        response = await axios.put(`${API_BASE_URL}/products/${editingProduct._id}`, productData, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+      } else {
+        response = await axios.post(`${API_BASE_URL}/products`, productData, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (response.data.success) {
+        showSuccess(editingProduct ? 'Product updated successfully!' : 'Product listed successfully!');
+        resetForm();
+        await fetchSellerProducts();
+        setShowListingModal(false);
+      }
+    } catch (error) {
+      console.error('Error saving product:', error);
+      if (error.response?.status === 401) {
+        showError('Session expired. Please login again.');
+        setTimeout(() => navigate('/login'), 2000);
+      } else {
+        showError(error.response?.data?.message || 'Failed to save product');
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -1060,7 +359,7 @@ const handleSubmit = async (e) => {
       dimensions: { length: '', width: '', height: '' },
       tags: [],
       variants: [],
-      deliveryZones: []
+      deliveryConfigId: null
     });
     setSelectedCategories([]);
     setSelectedImages([]);
@@ -1071,6 +370,8 @@ const handleSubmit = async (e) => {
     setNewTag('');
     setEditingProduct(null);
     setShowCategoryDropdown(false);
+    setSelectedDeliveryConfigId(null);
+    setSelectedDeliveryConfig(null);
   }, []);
 
   const editProduct = useCallback((product) => {
@@ -1091,8 +392,9 @@ const handleSubmit = async (e) => {
       dimensions: product.dimensions || { length: '', width: '', height: '' },
       tags: product.tags || [],
       variants: product.variants || [],
-      deliveryZones: product.deliveryZones || []
+      deliveryConfigId: product.deliveryConfigId || null
     });
+    setSelectedDeliveryConfigId(product.deliveryConfigId || null);
     setSelectedImages([]);
     setImagePreviews([]);
     setShowListingModal(true);
@@ -1164,6 +466,12 @@ const handleSubmit = async (e) => {
     }).format(price);
   };
 
+  const handleDeliveryConfigSelect = (configId, config) => {
+    setSelectedDeliveryConfigId(configId);
+    setSelectedDeliveryConfig(config);
+    setFormData(prev => ({ ...prev, deliveryConfigId: configId }));
+  };
+
   if (!isDataLoaded || user === undefined) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -1202,7 +510,7 @@ const handleSubmit = async (e) => {
                 <Truck className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Easy Delivery Management</h3>
-              <p className="text-gray-600 text-sm">Set your own delivery zones and prices. You control how your products reach customers</p>
+              <p className="text-gray-600 text-sm">Create reusable delivery configurations for all your products</p>
             </div>
             
             <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-lg transition">
@@ -1219,23 +527,23 @@ const handleSubmit = async (e) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">1</div>
+                <h3 className="font-semibold text-gray-900 mb-2">Create Delivery Config</h3>
+                <p className="text-sm text-gray-600">Set up reusable delivery zones and pricing</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">2</div>
                 <h3 className="font-semibold text-gray-900 mb-2">Create Listing</h3>
                 <p className="text-sm text-gray-600">Add your products with photos, prices, and descriptions</p>
               </div>
               <div className="text-center">
-                <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">2</div>
-                <h3 className="font-semibold text-gray-900 mb-2">Set Delivery Zones</h3>
-                <p className="text-sm text-gray-600">Choose which cities you deliver to and set delivery prices</p>
-              </div>
-              <div className="text-center">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">3</div>
-                <h3 className="font-semibold text-gray-900 mb-2">Receive Orders</h3>
-                <p className="text-sm text-gray-600">Get notified when customers purchase your products</p>
+                <h3 className="font-semibold text-gray-900 mb-2">Select Config</h3>
+                <p className="text-sm text-gray-600">Choose which delivery config applies to this product</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">4</div>
-                <h3 className="font-semibold text-gray-900 mb-2">Contact Buyer</h3>
-                <p className="text-sm text-gray-600">Get in touch with the buyer and finalize delivery arrangement</p>
+                <h3 className="font-semibold text-gray-900 mb-2">Receive Orders</h3>
+                <p className="text-sm text-gray-600">Get notified when customers purchase your products</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3">5</div>
@@ -1276,7 +584,11 @@ const handleSubmit = async (e) => {
             <ul className="space-y-3">
               <li className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-700">Set delivery prices for each city in Nigeria</span>
+                <span className="text-gray-700">Create reusable delivery configurations</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-700">Set delivery prices for neighborhoods, cities, states, or nationwide</span>
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
@@ -1284,11 +596,7 @@ const handleSubmit = async (e) => {
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-700">Choose which cities you can deliver to</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-700">Update order status and add tracking information</span>
+                <span className="text-gray-700">Apply the same delivery config to multiple products</span>
               </li>
             </ul>
           </div>
@@ -1337,10 +645,8 @@ const handleSubmit = async (e) => {
           onSetVariantForm={setVariantForm}
           onAddVariant={addVariant}
           onRemoveVariant={removeVariant}
-          onDeliveryZonesUpdate={handleDeliveryZonesUpdate}
-          onSetEditingProduct={setEditingProduct}
-          editingProductId={editingProduct?._id}
-          currentZones={formData.deliveryZones}
+          selectedDeliveryConfigId={selectedDeliveryConfigId}
+          onDeliveryConfigSelect={handleDeliveryConfigSelect}
           selectedCategories={selectedCategories}
           setSelectedCategories={setSelectedCategories}
           showCategoryDropdown={showCategoryDropdown}
@@ -1349,299 +655,6 @@ const handleSubmit = async (e) => {
       </>
     );
   }
-
-// Reviews Section Component
-const ReviewsSection = ({ products, sellerId, formatPrice }) => {
-  const [productReviews, setProductReviews] = useState({});
-  const [sellerReviews, setSellerReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [showProtestModal, setShowProtestModal] = useState(false);
-  const [protestReason, setProtestReason] = useState('');
-  const [protesting, setProtesting] = useState(false);
-  const { showSuccess, showError } = useData();
-
-  useEffect(() => {
-    fetchAllReviews();
-  }, []);
-
-  const fetchAllReviews = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Fetch reviews for each product
-      const productReviewPromises = products.map(async (product) => {
-        const response = await axios.get(
-          `${API_BASE_URL}/reviews/product/${product._id}/all`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        return { productId: product._id, reviews: response.data.data || [] };
-      });
-      
-      const productReviewsResults = await Promise.all(productReviewPromises);
-      const productReviewsMap = {};
-      productReviewsResults.forEach(result => {
-        productReviewsMap[result.productId] = result.reviews;
-      });
-      setProductReviews(productReviewsMap);
-      
-      // Fetch seller reviews
-      const sellerResponse = await axios.get(
-        `${API_BASE_URL}/reviews/seller/${sellerId}/all`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSellerReviews(sellerResponse.data.data || []);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-      showError('Failed to load reviews');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProtest = async (reviewId, type) => {
-    if (!protestReason.trim()) {
-      showError('Please provide a reason for protesting this review');
-      return;
-    }
-    
-    setProtesting(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE_URL}/reviews/protest`,
-        {
-          reviewId,
-          type,
-          reason: protestReason,
-          sellerId
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.data.success) {
-        showSuccess('Your protest has been submitted. Admin will review it shortly.');
-        setShowProtestModal(false);
-        setProtestReason('');
-        setSelectedProduct(null);
-      }
-    } catch (error) {
-      console.error('Error submitting protest:', error);
-      showError(error.response?.data?.message || 'Failed to submit protest');
-    } finally {
-      setProtesting(false);
-    }
-  };
-
-  const StarDisplay = ({ rating }) => (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`w-4 h-4 ${
-            star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-          }`}
-        />
-      ))}
-    </div>
-  );
-
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-        <p className="text-gray-500 mt-2">Loading reviews...</p>
-      </div>
-    );
-  }
-
-  const hasReviews = Object.values(productReviews).some(arr => arr.length > 0) || sellerReviews.length > 0;
-
-  if (!hasReviews) {
-    return (
-      <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <Package className="w-16 h-16 mx-auto mb-3 text-gray-300" />
-        <p className="text-gray-500">No reviews yet</p>
-        <p className="text-sm text-gray-400 mt-1">When customers review your products, they'll appear here</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* Seller Reviews */}
-      {sellerReviews.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Seller Reviews</h3>
-          <div className="grid grid-cols-1 gap-4">
-            {sellerReviews.map((review) => (
-              <div key={review._id} className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                        <span className="text-orange-600 font-semibold">
-                          {review.userName?.charAt(0) || 'U'}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{review.userName}</p>
-                        <p className="text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    <StarDisplay rating={review.rating} />
-                    {review.comment && (
-                      <p className="text-gray-600 text-sm mt-2">{review.comment}</p>
-                    )}
-                    {review.sellerResponse && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs font-medium text-gray-700">Your Response:</p>
-                        <p className="text-sm text-gray-600">{review.sellerResponse}</p>
-                      </div>
-                    )}
-                  </div>
-                  {!review.protested && (
-                    <button
-                      onClick={() => {
-                        setSelectedProduct({ id: review.sellerId, type: 'seller', reviewId: review._id });
-                        setShowProtestModal(true);
-                      }}
-                      className="text-red-500 hover:text-red-600 text-sm px-3 py-1 border border-red-300 rounded-lg hover:bg-red-50 transition"
-                    >
-                      Protest
-                    </button>
-                  )}
-                  {review.protested && (
-                    <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">Protested</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Product Reviews */}
-      {products.map((product) => {
-        const reviews = productReviews[product._id] || [];
-        if (reviews.length === 0) return null;
-        
-        return (
-          <div key={product._id} className="border-t border-gray-200 pt-6">
-            <div className="flex items-center gap-4 mb-4">
-              {product.images?.[0] && (
-                <img src={product.images[0]} alt={product.title} className="w-12 h-12 object-cover rounded" />
-              )}
-              <div>
-                <h3 className="font-semibold text-gray-900">{product.title}</h3>
-                <p className="text-sm text-gray-500">{formatPrice(product.price)}</p>
-              </div>
-            </div>
-            <div className="space-y-3 pl-0 md:pl-16">
-              {reviews.map((review) => (
-                <div key={review._id} className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                          <span className="text-orange-600 font-semibold">
-                            {review.userName?.charAt(0) || 'U'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{review.userName}</p>
-                          <p className="text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <StarDisplay rating={review.rating} />
-                      {review.comment && (
-                        <p className="text-gray-600 text-sm mt-2">{review.comment}</p>
-                      )}
-                      {review.sellerResponse && (
-                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs font-medium text-gray-700">Your Response:</p>
-                          <p className="text-sm text-gray-600">{review.sellerResponse}</p>
-                        </div>
-                      )}
-                    </div>
-                    {!review.protested && (
-                      <button
-                        onClick={() => {
-                          setSelectedProduct({ id: product._id, type: 'product', reviewId: review._id });
-                          setShowProtestModal(true);
-                        }}
-                        className="text-red-500 hover:text-red-600 text-sm px-3 py-1 border border-red-300 rounded-lg hover:bg-red-50 transition"
-                      >
-                        Protest
-                      </button>
-                    )}
-                    {review.protested && (
-                      <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">Protested</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Protest Modal */}
-      {showProtestModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-xl font-semibold text-gray-900">Protest Review</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Please explain why you disagree with this review
-              </p>
-            </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason for Protest
-                </label>
-                <textarea
-                  value={protestReason}
-                  onChange={(e) => setProtestReason(e.target.value)}
-                  rows="4"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="e.g., This review is inaccurate, The reviewer hasn't purchased this product, etc."
-                />
-              </div>
-              <div className="p-3 bg-yellow-50 rounded-lg mb-4">
-                <p className="text-xs text-yellow-800">
-                  <strong>Note:</strong> Your protest will be sent to the admin for review. 
-                  If approved, the review will be removed or modified.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleProtest(selectedProduct?.reviewId, selectedProduct?.type)}
-                  disabled={protesting}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 disabled:opacity-50"
-                >
-                  {protesting ? 'Submitting...' : 'Submit Protest'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowProtestModal(false);
-                    setProtestReason('');
-                    setSelectedProduct(null);
-                  }}
-                  className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
   // Main dashboard for sellers with products
   return (
@@ -1690,40 +703,40 @@ const ReviewsSection = ({ products, sellerId, formatPrice }) => {
         </div>
       </div>
 
-<div className="border-b border-gray-200 mb-6">
-  <nav className="flex space-x-4">
-    <button
-      onClick={() => setActiveTab('inventory')}
-      className={`pb-4 px-1 font-medium text-sm ${
-        activeTab === 'inventory'
-          ? 'border-b-2 border-orange-500 text-orange-600'
-          : 'text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      Inventory Management
-    </button>
-    <button
-      onClick={() => setActiveTab('orders')}
-      className={`pb-4 px-1 font-medium text-sm ${
-        activeTab === 'orders'
-          ? 'border-b-2 border-orange-500 text-orange-600'
-          : 'text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      Order Management
-    </button>
-    <button
-      onClick={() => setActiveTab('reviews')}
-      className={`pb-4 px-1 font-medium text-sm ${
-        activeTab === 'reviews'
-          ? 'border-b-2 border-orange-500 text-orange-600'
-          : 'text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      Reviews & Feedback
-    </button>
-  </nav>
-</div>
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="flex space-x-4">
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`pb-4 px-1 font-medium text-sm ${
+              activeTab === 'inventory'
+                ? 'border-b-2 border-orange-500 text-orange-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Inventory Management
+          </button>
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`pb-4 px-1 font-medium text-sm ${
+              activeTab === 'orders'
+                ? 'border-b-2 border-orange-500 text-orange-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Order Management
+          </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`pb-4 px-1 font-medium text-sm ${
+              activeTab === 'reviews'
+                ? 'border-b-2 border-orange-500 text-orange-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Reviews & Feedback
+          </button>
+        </nav>
+      </div>
 
       {activeTab === 'inventory' && (
         <div>
@@ -1832,16 +845,16 @@ const ReviewsSection = ({ products, sellerId, formatPrice }) => {
         </div>
       )}
       
-{activeTab === 'reviews' && (
-  <div>
-    <h2 className="text-xl font-semibold text-gray-900 mb-6">Reviews & Feedback</h2>
-    <ReviewsSection 
-      products={products} 
-      sellerId={user._id}
-      formatPrice={formatPrice}
-    />
-  </div>
-)}
+      {activeTab === 'reviews' && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Reviews & Feedback</h2>
+          <ReviewsSection 
+            products={products} 
+            sellerId={user._id}
+            formatPrice={formatPrice}
+          />
+        </div>
+      )}
 
       <ProductListingModal
         show={showListingModal}
@@ -1869,10 +882,8 @@ const ReviewsSection = ({ products, sellerId, formatPrice }) => {
         onSetVariantForm={setVariantForm}
         onAddVariant={addVariant}
         onRemoveVariant={removeVariant}
-        onDeliveryZonesUpdate={handleDeliveryZonesUpdate}
-        onSetEditingProduct={setEditingProduct}
-        editingProductId={editingProduct?._id}
-        currentZones={formData.deliveryZones}
+        selectedDeliveryConfigId={selectedDeliveryConfigId}
+        onDeliveryConfigSelect={handleDeliveryConfigSelect}
         selectedCategories={selectedCategories}
         setSelectedCategories={setSelectedCategories}
         showCategoryDropdown={showCategoryDropdown}

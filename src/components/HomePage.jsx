@@ -1,4 +1,3 @@
-// HomePage.jsx - With responsive grid based on parent width
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
@@ -88,13 +87,14 @@ const HomePage = () => {
   useEffect(() => {
     const savedCity = localStorage.getItem('buyerCity');
     const savedState = localStorage.getItem('buyerState');
+    const savedNeighborhood = localStorage.getItem('buyerNeighborhood');
     const locationSelected = localStorage.getItem('locationSelected');
     
-    if (savedCity && savedState && locationSelected === 'true') {
+    if (savedCity && savedState && savedNeighborhood && locationSelected === 'true') {
       setHasLocation(true);
-      setBuyerLocation({ city: savedCity, state: savedState });
+      setBuyerLocation({ city: savedCity, state: savedState, neighborhood: savedNeighborhood });
       if (featuredProducts.length === 0) {
-        fetchProductsByCategory(savedCity, savedState);
+        fetchProductsByCategory(savedCity, savedState, savedNeighborhood);
       }
     } else {
       setLoading(false);
@@ -102,7 +102,7 @@ const HomePage = () => {
     }
   }, []);
 
-  const fetchProductsByCategory = async (city, state) => {
+  const fetchProductsByCategory = async (city, state, neighborhood) => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -113,6 +113,9 @@ const HomePage = () => {
       if (city && state) {
         queryParams.append('city', city);
         queryParams.append('state', state);
+      }
+      if (neighborhood) {
+        queryParams.append('neighborhood', neighborhood);
       }
       
       const response = await fetch(`${API_BASE_URL}/products?${queryParams}`);
@@ -278,7 +281,6 @@ const HomePage = () => {
         </button>
       </div>
       
-      {/* Responsive grid that adjusts based on parent container width */}
       <div className="grid gap-4 md:gap-5" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))'
@@ -334,14 +336,15 @@ const HomePage = () => {
           <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Navigation className="w-10 h-10 text-orange-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Zoommia!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Zoomia!</h2>
           <p className="text-gray-600 mb-4 max-w-md mx-auto">
-            To see products available for delivery in your area, please select your delivery location.
+            To see products available for delivery in your area, please select your delivery location including your neighborhood.
           </p>
           <button
             onClick={() => {
               localStorage.removeItem('buyerCity');
               localStorage.removeItem('buyerState');
+              localStorage.removeItem('buyerNeighborhood');
               localStorage.removeItem('locationSelected');
               window.location.reload();
             }}
@@ -386,13 +389,14 @@ const HomePage = () => {
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
           <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            No products available in {buyerLocation?.city}
+            No products available in {buyerLocation?.neighborhood}, {buyerLocation?.city}
           </h2>
           <p className="text-gray-500 mb-4">We couldn't find any sellers delivering to your location yet.</p>
           <button
             onClick={() => {
               localStorage.removeItem('buyerCity');
               localStorage.removeItem('buyerState');
+              localStorage.removeItem('buyerNeighborhood');
               localStorage.removeItem('locationSelected');
               window.location.reload();
             }}

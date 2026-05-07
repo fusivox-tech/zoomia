@@ -10,14 +10,19 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
   const navigate = useNavigate();
   const { cartCount, user } = useData();
 
-  useEffect(() => {
-    // Load buyer's saved location
-    const savedCity = localStorage.getItem('buyerCity');
-    const savedState = localStorage.getItem('buyerState');
-    if (savedCity && savedState) {
-      setBuyerLocation({ city: savedCity, state: savedState });
-    }
-  }, []);
+useEffect(() => {
+  // Load buyer's saved location
+  const savedCity = localStorage.getItem('buyerCity');
+  const savedState = localStorage.getItem('buyerState');
+  const savedNeighborhood = localStorage.getItem('buyerNeighborhood');
+  if (savedCity && savedState) {
+    setBuyerLocation({ 
+      city: savedCity, 
+      state: savedState,
+      neighborhood: savedNeighborhood || ''
+    });
+  }
+}, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -55,15 +60,17 @@ const NavBar = ({isMenuOpen, setIsMenuOpen}) => {
           </form>
           
           <div className="flex items-center gap-4">
-            {/* Location Indicator */}
-            {buyerLocation && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 max-w-[100px] md:max-w-auto rounded-lg">
-                <MapPin className="w-4 h-4 text-orange-500" />
-                <span className="text-xs text-gray-600 line-clamp-1">
-                  {buyerLocation.city}
-                </span>
-              </div>
-            )}
+{/* Location Indicator */}
+{buyerLocation && (
+  <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 max-w-[100px] md:max-w-auto rounded-lg">
+    <MapPin className="w-4 h-4 text-orange-500" />
+    <div className="truncate">
+      <span className="text-xs text-gray-600">
+        {buyerLocation.neighborhood ? ` ${buyerLocation.neighborhood},` : ''} {buyerLocation.city}
+      </span>
+    </div>
+  </div>
+)}
             
             <button onClick={() => navigate('/profile')} className="flex items-center gap-2">
               <User className="w-5 h-5" />

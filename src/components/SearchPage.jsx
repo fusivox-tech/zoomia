@@ -1,4 +1,3 @@
-// SearchPage.jsx - Search and filter always visible, even when no products
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
@@ -29,11 +28,12 @@ const SearchPage = () => {
     
     const savedCity = localStorage.getItem('buyerCity');
     const savedState = localStorage.getItem('buyerState');
+    const savedNeighborhood = localStorage.getItem('buyerNeighborhood');
     const locationSelected = localStorage.getItem('locationSelected');
     
-    if (savedCity && savedState && locationSelected === 'true') {
+    if (savedCity && savedState && savedNeighborhood && locationSelected === 'true') {
       setHasLocation(true);
-      setBuyerLocation({ city: savedCity, state: savedState });
+      setBuyerLocation({ city: savedCity, state: savedState, neighborhood: savedNeighborhood });
     } else {
       setHasLocation(false);
       setLoading(false);
@@ -45,11 +45,11 @@ const SearchPage = () => {
 
   useEffect(() => {
     if (initialLoadDone && hasLocation && buyerLocation) {
-      fetchProducts(buyerLocation.city, buyerLocation.state);
+      fetchProducts(buyerLocation.city, buyerLocation.state, buyerLocation.neighborhood);
     }
   }, [initialLoadDone, hasLocation, buyerLocation, searchTerm, selectedCategory, priceRange.min, priceRange.max]);
 
-  const fetchProducts = async (city, state, pageNum = 1) => {
+  const fetchProducts = async (city, state, neighborhood, pageNum = 1) => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -62,6 +62,9 @@ const SearchPage = () => {
       if (city && state) {
         queryParams.append('city', city);
         queryParams.append('state', state);
+      }
+      if (neighborhood) {
+        queryParams.append('neighborhood', neighborhood);
       }
       
       if (searchTerm) queryParams.append('search', searchTerm);
@@ -108,7 +111,7 @@ const SearchPage = () => {
     e.preventDefault();
     if (hasLocation && buyerLocation) {
       setPagination(prev => ({ ...prev, page: 1 }));
-      fetchProducts(buyerLocation.city, buyerLocation.state, 1);
+      fetchProducts(buyerLocation.city, buyerLocation.state, buyerLocation.neighborhood, 1);
     }
   };
 
@@ -118,13 +121,13 @@ const SearchPage = () => {
     setPriceRange({ min: '', max: '' });
     navigate('/search');
     if (hasLocation && buyerLocation) {
-      fetchProducts(buyerLocation.city, buyerLocation.state, 1);
+      fetchProducts(buyerLocation.city, buyerLocation.state, buyerLocation.neighborhood, 1);
     }
   };
 
   const loadMoreProducts = () => {
     if (pagination.page < pagination.pages && !loading && buyerLocation) {
-      fetchProducts(buyerLocation.city, buyerLocation.state, pagination.page + 1);
+      fetchProducts(buyerLocation.city, buyerLocation.state, buyerLocation.neighborhood, pagination.page + 1);
     }
   };
 
@@ -158,12 +161,13 @@ const SearchPage = () => {
               Select Your Delivery Location First
             </h2>
             <p className="text-gray-500 mb-4 max-w-md mx-auto">
-              Please set your delivery location to see products available in your area.
+              Please set your delivery location (including neighborhood) to see products available in your area.
             </p>
             <button
               onClick={() => {
                 localStorage.removeItem('buyerCity');
                 localStorage.removeItem('buyerState');
+                localStorage.removeItem('buyerNeighborhood');
                 localStorage.removeItem('locationSelected');
                 window.location.href = '/';
               }}
@@ -280,14 +284,14 @@ const SearchPage = () => {
         {!loading && products.length > 0 && (
           <div className="w-full mb-4 text-gray-600">
             Showing {products.length} of {pagination.total} product{pagination.total !== 1 ? 's' : ''}
-            {buyerLocation?.city && ` in ${buyerLocation.city}`}
+            {buyerLocation?.city && ` in ${buyerLocation.city}, ${buyerLocation.state}`}
+            {buyerLocation?.neighborhood && <span className="text-xs text-gray-400"> (deliverable to {buyerLocation.neighborhood})</span>}
           </div>
         )}
 
         {/* Products Grid or No Results Message */}
         <div className="w-full">
           {loading ? (
-            // Loading skeletons with responsive grid
             <div className="w-full" style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
@@ -298,14 +302,13 @@ const SearchPage = () => {
               ))}
             </div>
           ) : products.length === 0 ? (
-            // No results message - Search and filters remain visible above
             <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
               <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
                 No products found
               </h2>
               <p className="text-gray-500 mb-4 max-w-md mx-auto">
-                We couldn't find any products matching your criteria{ buyerLocation?.city ? ` in ${buyerLocation.city}` : '' }.
+                We couldn't find any products matching your criteria{ buyerLocation?.neighborhood ? ` in ${buyerLocation.neighborhood}` : '' }.
               </p>
               <button 
                 onClick={clearFilters} 
@@ -315,7 +318,6 @@ const SearchPage = () => {
               </button>
             </div>
           ) : (
-            // Products grid with responsive layout
             <>
               <div className="w-full" style={{
                 display: 'grid',
@@ -339,11 +341,10 @@ const SearchPage = () => {
                 ))}
               </div>
               
-              {/* Pagination Controls */}
               {pagination.pages > 1 && (
                 <div className="flex justify-center items-center gap-3 mt-8">
                   <button
-                    onClick={() => fetchProducts(buyerLocation?.city, buyerLocation?.state, pagination.page - 1)}
+                    onClick={() => fetchProducts(buyerLocation?.city, buyerLocation?.state, buyerLocation?.neighborhood, pagination.page - 1)}
                     disabled={pagination.page <= 1 || loading}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:border-orange-500 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                   >

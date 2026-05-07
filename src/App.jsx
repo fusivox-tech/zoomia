@@ -41,8 +41,11 @@ const AppContent = () => {
     const locationSelected = localStorage.getItem('locationSelected');
     const selectedCity = localStorage.getItem('buyerCity');
     const selectedState = localStorage.getItem('buyerState');
+    const selectedNeighborhood = localStorage.getItem('buyerNeighborhood');
     
-    if (!locationSelected || locationSelected === 'skipped' || !selectedCity || !selectedState) {
+    // Check if location is selected AND neighborhood exists
+    // Neighborhood is REQUIRED - not optional
+    if (!locationSelected || locationSelected === 'skipped' || !selectedCity || !selectedState || !selectedNeighborhood) {
       setTimeout(() => {
         setShowLocationModal(true);
         setIsLoading(false);
@@ -52,10 +55,10 @@ const AppContent = () => {
     }
   }, []);
 
-  const handleLocationSelected = (state, city, skipped = false) => {
+  const handleLocationSelected = (state, city, neighborhood, skipped = false) => {
     setShowLocationModal(false);
     
-    if (!skipped && state && city) {
+    if (!skipped && state && city && neighborhood) {
       window.location.reload();
     }
   };

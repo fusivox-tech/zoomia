@@ -70,6 +70,14 @@ export const DataProvider = ({ children }) => {
     showError('Session expired. Please login again.');
   }, [showError]);
 
+  // Get buyer location from localStorage
+  const getBuyerLocation = useCallback(() => {
+    const state = localStorage.getItem('buyerState');
+    const city = localStorage.getItem('buyerCity');
+    const neighborhood = localStorage.getItem('buyerNeighborhood');
+    return { state, city, neighborhood };
+  }, []);
+
   // Load cart from localStorage (for non-logged in users)
   const loadLocalCart = useCallback(() => {
     const savedCart = localStorage.getItem('cart');
@@ -156,6 +164,13 @@ export const DataProvider = ({ children }) => {
 
   // Add to cart (works for both logged in and non-logged in)
   const addToCart = useCallback(async (item) => {
+    // Ensure delivery price is included
+    const cartItem = {
+      ...item,
+      deliveryPrice: item.deliveryPrice || 0,
+      deliveryConfigId: item.deliveryConfigId || null
+    };
+    
     if (user) {
       // Logged in - save to database
       const currentCart = [...cartItems];
@@ -170,7 +185,7 @@ export const DataProvider = ({ children }) => {
           currentCart[existingIndex].quantity = currentCart[existingIndex].maxStock;
         }
       } else {
-        currentCart.push(item);
+        currentCart.push(cartItem);
       }
       
       await saveDatabaseCart(currentCart);
@@ -189,7 +204,7 @@ export const DataProvider = ({ children }) => {
           currentCart[existingIndex].quantity = currentCart[existingIndex].maxStock;
         }
       } else {
-        currentCart.push(item);
+        currentCart.push(cartItem);
       }
       
       saveLocalCart(currentCart);
@@ -345,7 +360,8 @@ export const DataProvider = ({ children }) => {
     featuredProducts, 
     setFeaturedProducts,
     loadingProducts, 
-    setLoadingProducts
+    setLoadingProducts,
+    getBuyerLocation
   };
   
   return (

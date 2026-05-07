@@ -4,474 +4,10 @@ import { useData } from '../contexts/DataContext';
 import axios from 'axios';
 import API_BASE_URL from '../config';
 import { User, MapPin, Package, LogOut, Edit2, X, Navigation, Check, AlertCircle, CreditCard, Banknote, Trash2, Plus, Info, Eye, Shield } from 'lucide-react';
-import ReviewModal from './ReviewModal';
-
-// OrderCard Component - Handles individual order display and cancellation timer
-const OrderCard = ({ order, formatPrice, getOrderStatusColor, onOrderCancelled }) => {
-  const { showSuccess, showError } = useData();
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState('');
-  const [cancelling, setCancelling] = useState(false);
-  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
-  
-  const displayReference = order.reference || order._id;
-  const orderItems = order.items || [];
-  const orderTotal = order.total || 0;
-  const orderStatus = order.status || 'pending';
-  const orderDate = order.createdAt;
-  
-  // Calculate if order is within 24 hours for cancellation
-  const now = new Date();
-  const orderCreatedAt = new Date(orderDate);
-  const hoursSinceOrder = (now - orderCreatedAt) / (1000 * 60 * 60);
-  const canCancel = order.status !== 'delivered' && !order.deliveryDisputed && order.status !== 'cancelled' && hoursSinceOrder <= 24;
-  
-  const sellerName = order.seller?.sellerName || order.sellerName || 'Seller';
-  const sellerPhone = order.seller?.sellerPhone || order.sellerPhone;
-  const sellerEmail = order.seller?.sellerEmail || order.sellerEmail;
-  const sellerProfileImage = order.seller?.sellerProfileImage;
-  
-const [showProductReviewModal, setShowProductReviewModal] = useState(false);
-const [selectedProductForReview, setSelectedProductForReview] = useState(null);
-const [productReviews, setProductReviews] = useState({});
-const [showSellerReviewModal, setShowSellerReviewModal] = useState(false);
-const [hasSellerReview, setHasSellerReview] = useState(false);
-const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-// Check for existing reviews on mount
-useEffect(() => {
-  if (orderStatus === 'delivered' && order.deliveryConfirmed) {
-    checkExistingReviews();
-  }
-}, [order._id, orderStatus, refreshTrigger]);
-
-const checkExistingReviews = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    
-    // Check product reviews for each product in the order
-    const productReviewStatus = {};
-    for (const item of orderItems) {
-      const productReviewRes = await axios.get(
-        `${API_BASE_URL}/reviews/order/${order._id}/product/${item.id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (productReviewRes.data.success && productReviewRes.data.data) {
-        productReviewStatus[item.id] = true;
-      }
-    }
-    setProductReviews(productReviewStatus);
-    
-    // Check seller review
-    const sellerReviewRes = await axios.get(
-      `${API_BASE_URL}/reviews/order/${order._id}/seller`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (sellerReviewRes.data.success && sellerReviewRes.data.data) {
-      setHasSellerReview(true);
-    }
-  } catch (error) {
-    console.error('Error checking reviews:', error);
-  }
-};
-  
-  // Timer effect
-  useEffect(() => {
-    if (!canCancel) return;
-    
-    const timer = setInterval(() => {
-      const now = new Date();
-      const elapsed = (now - orderCreatedAt) / 1000;
-      const remaining = 24 * 60 * 60 - elapsed;
-      
-      if (remaining <= 0) {
-        clearInterval(timer);
-        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
-      } else {
-        const hours = Math.floor(remaining / 3600);
-        const minutes = Math.floor((remaining % 3600) / 60);
-        const seconds = Math.floor(remaining % 60);
-        setTimeLeft({ hours, minutes, seconds });
-      }
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, [canCancel, orderCreatedAt]);
-  
-  const handleCancelOrder = async () => {
-    setCancelling(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE_URL}/orders/${order._id}/cancel`,
-        { cancellationReason },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.data.success) {
-        showSuccess(response.data.message);
-        if (onOrderCancelled) onOrderCancelled();
-        setShowCancelModal(false);
-      }
-    } catch (error) {
-      showError(error.response?.data?.message || 'Failed to cancel order');
-    } finally {
-      setCancelling(false);
-    }
-  };
-  
-  return (
-    <>
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
-        {/* Order Header */}
-        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center">
-          <div>
-            <p className="text-sm text-gray-500 font-mono">
-              Order #{displayReference.slice(-8)}
-            </p>
-            <p className="text-xs text-gray-400">{new Date(orderDate).toLocaleDateString()}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 text-xs rounded-full bg-${getOrderStatusColor(orderStatus)}-100 text-${getOrderStatusColor(orderStatus)}-700 capitalize`}>
-              {orderStatus}
-            </span>
-            <p className="font-bold text-gray-900">{formatPrice(orderTotal)}</p>
-          </div>
-        </div>
-        
-        <div className="p-6">
-          
-          {/* Refund Status for Cancelled Orders */}
-          {orderStatus === 'cancelled' && (
-            <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-green-800">Order Cancelled</p>
-                  <p className="text-xs text-green-700">
-                    Refund Status: {order.refundStatus === 'pending' ? 'Pending' : 'Completed'}
-                  </p>
-                  {order.refundAmount && (
-                    <p className="text-xs text-green-700">
-                      Refund Amount: {formatPrice(order.refundAmount)} (95% of total)
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Order Items */}
-          <div className="space-y-3">
-            {orderItems.map((item, idx) => (
-              <div key={idx} className="flex gap-4">
-                <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                  <img 
-                    src={item.image || item.product?.images?.[0] || '/placeholder.png'} 
-                    alt={item.title}
-                    className="w-full h-full object-cover rounded"
-                    onError={(e) => {
-                      e.target.src = '/placeholder.png';
-                    }}
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{item.title}</p>
-                  <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
-                  <p className="text-orange-500 font-semibold">{formatPrice(item.price)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Seller Information */}
-          <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-            <div className="flex items-center gap-3 mb-3">
-              {sellerProfileImage ? (
-                <img src={sellerProfileImage} alt={sellerName} className="w-10 h-10 rounded-full object-cover" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-orange-200 flex items-center justify-center">
-                  <span className="text-orange-600 font-semibold">
-                    {sellerName.charAt(0)}
-                  </span>
-                </div>
-              )}
-              <div>
-                <h3 className="font-semibold text-gray-900">Sold by: {sellerName}</h3>
-                <p className="text-xs text-gray-600">Seller</p>
-              </div>
-            </div>
-            
-            <div className="space-y-2 text-sm">
-              {sellerPhone && (
-                <p className="flex items-center gap-2">
-                  <span className="text-gray-600">📞 Phone:</span>
-                  <a href={`tel:${sellerPhone}`} className="text-orange-600 hover:text-orange-700 font-medium">
-                    {sellerPhone}
-                  </a>
-                </p>
-              )}
-              {sellerEmail && (
-                <p className="flex items-center gap-2">
-                  <span className="text-gray-600">✉️ Email:</span>
-                  <a href={`mailto:${sellerEmail}`} className="text-orange-600 hover:text-orange-700">
-                    {sellerEmail}
-                  </a>
-                </p>
-              )}
-            </div>
-          </div>
-          
-          {/* Call Seller Button */}
-          {sellerPhone && orderStatus !== 'delivered' && orderStatus !== 'cancelled' && (
-            <div className="mt-4">
-              <a
-                href={`tel:${sellerPhone}`}
-                className="block text-center w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium"
-              >
-                📞 Call Seller to Arrange Delivery
-              </a>
-            </div>
-          )}
-          {/* Cancellation Timer */}
-          {canCancel && (
-            <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">Cancellation Available</p>
-                  <p className="text-xs text-yellow-700">You can cancel this order within:</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-yellow-800">
-                    {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
-                  </p>
-                  <p className="text-xs text-yellow-700">(5% penalty applies)</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowCancelModal(true)}
-                className="mt-3 w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
-              >
-                Cancel Order
-              </button>
-            </div>
-          )}
-{orderStatus === 'delivered' && !order.deliveryConfirmed && !order.deliveryDisputed && (
-  <div className="mt-4 space-y-3">
-    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-      <p className="text-sm text-blue-800 mb-2">
-        <strong>⚠️ Action Required:</strong> Please confirm if you have received this order.
-      </p>
-      <p className="text-xs text-blue-600 mb-3">
-        You have until {new Date(order.deliveryConfirmationDeadline).toLocaleString()} to confirm or dispute.
-      </p>
-      <div className="flex gap-3">
-        <button
-          onClick={async () => {
-            if (window.confirm('Have you received all items in good condition? Confirming will release payment to the seller.')) {
-              try {
-                const token = localStorage.getItem('token');
-                const response = await axios.post(
-                  `${API_BASE_URL}/orders/${order._id}/confirm-delivery`,
-                  {},
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
-                if (response.data.success) {
-                  showSuccess(response.data.message);
-                  window.location.reload();
-                }
-              } catch (error) {
-                showError(error.response?.data?.message || 'Failed to confirm delivery');
-              }
-            }
-          }}
-          className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium"
-        >
-          ✓ Confirm Delivery
-        </button>
-        <button
-          onClick={() => {
-            // Show modal for detailed dispute reason
-            const disputeReason = prompt('Please select the reason for dispute:\n\n1. Item not received\n2. Wrong item delivered\n3. Item damaged\n4. Item not as described\n5. Other');
-            if (disputeReason) {
-              const disputeDetails = prompt('Please provide detailed explanation of what happened (be as specific as possible):\n\nInclude information about:\n- When was delivery attempted?\n- What condition was the item in?\n- Have you contacted the seller?\n- Any other relevant details');
-              if (disputeDetails) {
-                (async () => {
-                  try {
-                    const token = localStorage.getItem('token');
-                    const response = await axios.post(
-                      `${API_BASE_URL}/orders/${order._id}/dispute-delivery`,
-                      { disputeReason, disputeDetails },
-                      { headers: { Authorization: `Bearer ${token}` } }
-                    );
-                    if (response.data.success) {
-                      showSuccess(response.data.message);
-                      onOrderCancelled();
-                    }
-                  } catch (error) {
-                    showError(error.response?.data?.message || 'Failed to file dispute');
-                  }
-                })();
-              } else {
-                showError('Please provide details about the dispute.');
-              }
-            }
-          }}
-          className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
-        >
-          ⚠️ Dispute Delivery
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-{orderStatus === 'delivered' && order.deliveryDisputed && (
-  <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-    <div className="flex items-center gap-2">
-      <AlertCircle className="w-5 h-5 text-red-600" />
-      <p className="text-sm text-red-700 font-medium">Delivery Disputed</p>
-    </div>
-    <p className="text-xs text-red-600 mt-1">Admin has been notified and will review your case.</p>
-  </div>
-)}
-
-{orderStatus === 'delivered' && (order.deliveryDisputed || order.deliveryConfirmed) && (
-  <>
-    {/* Product Reviews - One button per product */}
-    <div className="mt-4">
-      <p className="text-sm font-medium text-gray-700 mb-2">Rate Products:</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {orderItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setSelectedProductForReview(item);
-              setShowProductReviewModal(true);
-            }}
-            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium flex items-center justify-between"
-          >
-            <span className="truncate flex-1 text-left">{item.title}</span>
-            <span className="ml-2 text-xs">
-              {productReviews[item.id] ? 'Edit' : 'Review'}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-    
-    {/* Seller Review Button */}
-    <div className="mt-3">
-      <button
-        onClick={() => setShowSellerReviewModal(true)}
-        className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium"
-      >
-        {hasSellerReview ? 'Edit Seller Review' : 'Review Seller'}
-      </button>
-    </div>
-    
-    {/* Product Review Modal */}
-    <ReviewModal
-      isOpen={showProductReviewModal}
-      onClose={() => {
-        setShowProductReviewModal(false);
-        setSelectedProductForReview(null);
-      }}
-      orderId={order._id}
-      product={selectedProductForReview}
-      seller={null}
-      onReviewSubmitted={() => {
-        setRefreshTrigger(prev => prev + 1);
-        if (selectedProductForReview) {
-          setProductReviews(prev => ({ ...prev, [selectedProductForReview.id]: true }));
-        }
-      }}
-      type="product"
-    />
-    
-    {/* Seller Review Modal */}
-    <ReviewModal
-      isOpen={showSellerReviewModal}
-      onClose={() => setShowSellerReviewModal(false)}
-      orderId={order._id}
-      product={null}
-      seller={{
-        sellerId: order.sellerId,
-        sellerName: order.sellerName,
-        sellerEmail: order.sellerEmail
-      }}
-      onReviewSubmitted={() => {
-        setRefreshTrigger(prev => prev + 1);
-        setHasSellerReview(true);
-      }}
-      type="seller"
-    />
-  </>
-)}
-        </div>
-      </div>
-      
-      {/* Cancellation Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-xl font-semibold text-gray-900">Cancel Order</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Please tell us why you're cancelling this order (optional)
-              </p>
-            </div>
-            
-            <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cancellation Reason
-                </label>
-                <textarea
-                  value={cancellationReason}
-                  onChange={(e) => setCancellationReason(e.target.value)}
-                  rows="4"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="e.g., Changed my mind, Found a better price, Delivery takes too long, etc."
-                />
-              </div>
-              
-              <div className="p-3 bg-yellow-50 rounded-lg mb-4">
-                <p className="text-xs text-yellow-800">
-                  <strong>Note:</strong> A 5% penalty fee will be deducted from your refund. 
-                  You will receive 95% of the order total back to your bank account within 5-7 business days.
-                </p>
-              </div>
-              
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCancelOrder}
-                  disabled={cancelling}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 disabled:opacity-50"
-                >
-                  {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCancelModal(false);
-                    setCancellationReason('');
-                  }}
-                  className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50"
-                >
-                  Go Back
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
+import ReviewModal from './profile/ReviewModal';
+import OrderCard from './profile/OrderCard';
+import BankAccountSection from './profile/BankAccountSection';
+import DeliveryLocationSection from './profile/DeliveryLocationSection';
 
 const ProfilePage = () => {
   const { user, logout, showSuccess, showError } = useData();
@@ -484,41 +20,15 @@ const ProfilePage = () => {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   
-  // Bank account states
-  const [bankAccount, setBankAccount] = useState(null);
-  const [showBankForm, setShowBankForm] = useState(false);
-  const [bankForm, setBankForm] = useState({
-    accountNumber: '',
-    bankCode: '',
-    bankName: ''
-  });
-  const [banks, setBanks] = useState([]);
-  const [bankLoading, setBankLoading] = useState(false);
-  const [verifyingBank, setVerifyingBank] = useState(false);
-  const [selectedBank, setSelectedBank] = useState('');
-  const [bankError, setBankError] = useState('');
-  const [verifiedAccount, setVerifiedAccount] = useState(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [payouts, setPayouts] = useState([]);
+  const [loadingPayouts, setLoadingPayouts] = useState(false);
   
-  // Location management states
-  const [editingLocation, setEditingLocation] = useState(false);
-  const [availableStates, setAvailableStates] = useState([]);
-  const [availableCities, setAvailableCities] = useState([]);
-  const [tempState, setTempState] = useState('');
-  const [tempCity, setTempCity] = useState('');
-  const [currentLocation, setCurrentLocation] = useState({ state: '', city: '' });
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState('');
-  
-  // Address form states with selection first
+  // Address form states
   const [addressStates, setAddressStates] = useState([]);
   const [addressCities, setAddressCities] = useState([]);
   const [addressCityLoading, setAddressCityLoading] = useState(false);
   const [selectedAddressState, setSelectedAddressState] = useState('');
   const [selectedAddressCity, setSelectedAddressCity] = useState('');
-
-const [payouts, setPayouts] = useState([]);
-const [loadingPayouts, setLoadingPayouts] = useState(false);
   
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -541,133 +51,6 @@ const [loadingPayouts, setLoadingPayouts] = useState(false);
     askFor: ''
   });
 
-  // Fetch banks on component mount
-  useEffect(() => {
-    fetchBanks();
-  }, []);
-
-  // Update bank account when user data loads
-  useEffect(() => {
-    if (user && user.bankAccount) {
-      const bank = banks.find(b => b.code === user.bankAccount.bankCode);
-      setBankAccount({
-        ...user.bankAccount,
-        bankName: bank?.name || user.bankAccount.bankName
-      });
-    } else {
-      setBankAccount(null);
-    }
-  }, [user, banks]);
-
-  // Fetch list of Nigerian banks
-  const fetchBanks = async () => {
-    setBankLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/banks`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.success) {
-        setBanks(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching banks:', error);
-    } finally {
-      setBankLoading(false);
-    }
-  };
-
-// Verify bank account without saving
-const verifyBankAccount = async () => {
-  if (!bankForm.accountNumber || !bankForm.bankCode) {
-    setBankError('Please fill in all required fields');
-    return;
-  }
-  
-  if (bankForm.accountNumber.length !== 10) {
-    setBankError('Account number must be 10 digits');
-    return;
-  }
-  
-  setVerifyingBank(true);
-  setBankError('');
-  
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.post(`${API_BASE_URL}/user/bank-account/verify`, {
-      accountNumber: bankForm.accountNumber,
-      bankCode: bankForm.bankCode
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (response.data.success) {
-      // Get the bank name from the banks list (already available in frontend)
-      const selectedBankData = banks.find(b => b.code === bankForm.bankCode);
-      
-      // Add bankName to the verified account object
-      setVerifiedAccount({
-        ...response.data.data,
-        bankName: selectedBankData?.name || '' // Add bank name here
-      });
-      setShowConfirmation(true);
-    }
-  } catch (error) {
-    setBankError(error.response?.data?.message || 'Failed to verify bank account');
-  } finally {
-    setVerifyingBank(false);
-  }
-};
-
-const saveBankAccount = async () => {
-  if (!verifiedAccount) return;
-  
-  setVerifyingBank(true);
-  
-  try {
-    const token = localStorage.getItem('token');
-    
-    const response = await axios.post(`${API_BASE_URL}/user/bank-account`, {
-      accountNumber: verifiedAccount.accountNumber,
-      bankCode: verifiedAccount.bankCode,
-      accountName: verifiedAccount.accountName,
-      bankName: verifiedAccount.bankName // This will now have the value
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (response.data.success) {
-      const message = response.data.message || 'Bank account saved successfully';
-      showSuccess(message);
-      window.location.reload();
-    }
-  } catch (error) {
-    setBankError(error.response?.data?.message || 'Failed to save bank account');
-    setVerifyingBank(false);
-  }
-};
-
-  // Remove bank account
-  const removeBankAccount = async () => {
-    if (!window.confirm('Are you sure you want to remove your bank account?')) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.delete(`${API_BASE_URL}/user/bank-account`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        showSuccess('Bank account removed successfully!');
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Error removing bank account:', error);
-      showError('Failed to remove bank account');
-    }
-  };
-
-  // Redirect if not logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -683,8 +66,6 @@ const saveBankAccount = async () => {
       });
       fetchAddresses();
       fetchOrders();
-      loadCurrentLocation();
-      fetchStates();
       fetchAddressStates();
     }
   }, [user, navigate]);
@@ -706,50 +87,23 @@ const saveBankAccount = async () => {
     }
   };
 
-  // Load current delivery location from localStorage
-  const loadCurrentLocation = () => {
-    const savedState = localStorage.getItem('buyerState');
-    const savedCity = localStorage.getItem('buyerCity');
-    if (savedState && savedCity) {
-      setCurrentLocation({ state: savedState, city: savedCity });
-      setTempState(savedState);
-      setTempCity(savedCity);
-    }
-  };
-  
   const fetchPayouts = async () => {
-  setLoadingPayouts(true);
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE_URL}/user/payouts`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (response.data.success) {
-      setPayouts(response.data.data);
-    }
-  } catch (error) {
-    console.error('Error fetching payouts:', error);
-  } finally {
-    setLoadingPayouts(false);
-  }
-};
-
-  // Fetch all Nigerian states
-  const fetchStates = async () => {
+    setLoadingPayouts(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/cities/states`);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/user/payouts`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (response.data.success) {
-        setAvailableStates(response.data.data);
-      } else {
-        setLocationError('Failed to load states');
+        setPayouts(response.data.data);
       }
     } catch (error) {
-      console.error('Error fetching states:', error);
-      setLocationError('Failed to connect to server');
+      console.error('Error fetching payouts:', error);
+    } finally {
+      setLoadingPayouts(false);
     }
   };
 
-  // Fetch states for address form
   const fetchAddressStates = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/cities/states`);
@@ -761,7 +115,6 @@ const saveBankAccount = async () => {
     }
   };
 
-  // Fetch cities for selected state in address form
   const fetchAddressCities = async (state) => {
     setAddressCityLoading(true);
     try {
@@ -777,39 +130,6 @@ const saveBankAccount = async () => {
     }
   };
 
-  // Fetch cities for selected state
-  const fetchCitiesForState = async (state) => {
-    setLocationLoading(true);
-    setLocationError('');
-    setAvailableCities([]);
-    
-    try {
-      const encodedState = encodeURIComponent(state);
-      const url = `${API_BASE_URL}/cities/state/${encodedState}`;
-      const response = await axios.get(url);
-      if (response.data.success) {
-        setAvailableCities(response.data.data);
-      } else {
-        setLocationError('Failed to load cities');
-      }
-    } catch (error) {
-      setLocationError(error.response?.data?.message || 'Failed to load cities');
-    } finally {
-      setLocationLoading(false);
-    }
-  };
-
-  // Handle state selection
-  const handleStateChange = (state) => {
-    setTempState(state);
-    setTempCity('');
-    setAvailableCities([]);
-    if (state) {
-      fetchCitiesForState(state);
-    }
-  };
-
-  // Handle address state selection
   const handleAddressStateChange = (state) => {
     setSelectedAddressState(state);
     setSelectedAddressCity('');
@@ -820,28 +140,9 @@ const saveBankAccount = async () => {
     }
   };
 
-  // Handle address city selection
   const handleAddressCitySelect = (city) => {
     setSelectedAddressCity(city);
     setAddressForm(prev => ({ ...prev, city: city }));
-  };
-
-  // Save delivery location
-  const saveLocation = () => {
-    if (tempState && tempCity) {
-      localStorage.setItem('buyerState', tempState);
-      localStorage.setItem('buyerCity', tempCity);
-      localStorage.setItem('locationSelected', 'true');
-      localStorage.setItem('locationSelectedAt', new Date().toISOString());
-      setCurrentLocation({ state: tempState, city: tempCity });
-      setEditingLocation(false);
-      showSuccess(`Delivery location updated to ${tempCity}, ${tempState}!`);
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
-    } else {
-      showError('Please select both state and city');
-    }
   };
 
   const fetchAddresses = async () => {
@@ -879,18 +180,15 @@ const saveBankAccount = async () => {
         setEditingProfile(false);
         showSuccess('Profile updated successfully!');
       } else {
-        const errorMsg = response?.data?.message || 'Failed to update profile';
-        showError(errorMsg);
+        showError(response?.data?.message || 'Failed to update profile');
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to update profile. Please try again.';
-      showError(errorMessage);
+      showError(error.response?.data?.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
   };
 
-  // Update the addAddress function
   const addAddress = async () => {
     if (!addressForm.street || !addressForm.city || !addressForm.state) {
       showError('Please fill in all required fields');
@@ -924,14 +222,12 @@ const saveBankAccount = async () => {
         showSuccess('Address added successfully!');
       }
     } catch (error) {
-      console.error('Error adding address:', error);
       showError(error.response?.data?.message || 'Failed to add address');
     } finally {
       setLoading(false);
     }
   };
 
-  // Update the updateAddress function
   const updateAddress = async () => {
     setLoading(true);
     try {
@@ -963,7 +259,6 @@ const saveBankAccount = async () => {
         showSuccess('Address updated successfully!');
       }
     } catch (error) {
-      console.error('Error updating address:', error);
       showError(error.response?.data?.message || 'Failed to update address');
     } finally {
       setLoading(false);
@@ -984,7 +279,6 @@ const saveBankAccount = async () => {
         showSuccess('Address deleted successfully!');
       }
     } catch (error) {
-      console.error('Error deleting address:', error);
       showError(error.response?.data?.message || 'Failed to delete address');
     } finally {
       setLoading(false);
@@ -1006,7 +300,6 @@ const saveBankAccount = async () => {
         showSuccess('Default address updated!');
       }
     } catch (error) {
-      console.error('Error setting default address:', error);
       showError(error.response?.data?.message || 'Failed to set default address');
     } finally {
       setLoading(false);
@@ -1034,8 +327,7 @@ const saveBankAccount = async () => {
     };
     return colors[status] || 'gray';
   };
-  
-  // Update the edit address handler to include new fields
+
   const handleEditAddress = (address) => {
     setEditingAddress(address);
     setAddressForm({
@@ -1112,21 +404,20 @@ const saveBankAccount = async () => {
               <Package className="w-4 h-4 hidden md:inline-block" />
               My Orders
             </button>
-
-<button
-  onClick={() => {
-    setActiveTab('payouts');
-    fetchPayouts();
-  }}
-  className={`pb-4 px-1 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
-    activeTab === 'payouts'
-      ? 'border-b-2 border-orange-500 text-orange-600'
-      : 'text-gray-500 hover:text-gray-700'
-  }`}
->
-  <Banknote className="w-4 h-4 hidden md:inline-block" />
-  Payouts
-</button>
+            <button
+              onClick={() => {
+                setActiveTab('payouts');
+                fetchPayouts();
+              }}
+              className={`pb-4 px-1 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'payouts'
+                  ? 'border-b-2 border-orange-500 text-orange-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Banknote className="w-4 h-4 hidden md:inline-block" />
+              Payouts
+            </button>
           </nav>
         </div>
 
@@ -1138,9 +429,7 @@ const saveBankAccount = async () => {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Personal Information</h3>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                   <input
                     type="text"
                     value={profileForm.fullName}
@@ -1150,7 +439,7 @@ const saveBankAccount = async () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Business Name <span className="text-gray-400 text-xs">(For sellers - appears on product listings)</span>
+                    Business Name <span className="text-gray-400 text-xs">(For sellers)</span>
                   </label>
                   <input
                     type="text"
@@ -1159,12 +448,9 @@ const saveBankAccount = async () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                     placeholder="Your business or store name"
                   />
-                  <p className="text-xs text-gray-500 mt-1">If left blank, your full name will be used for product listings</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number <span className="text-red-500">*</span></label>
                   <input
                     type="tel"
                     value={profileForm.phone}
@@ -1172,19 +458,15 @@ const saveBankAccount = async () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                     placeholder="08012345678"
                   />
-                  <p className="text-xs text-orange-500 mt-1">Required for selling and checkout</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
                     value={profileForm.email}
                     disabled
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
@@ -1222,16 +504,10 @@ const saveBankAccount = async () => {
                   <div className="pb-3 border-b border-gray-100">
                     <p className="text-sm text-gray-500">Business Name</p>
                     <p className="text-lg font-medium text-gray-900">{user.businessName || 'Not set'}</p>
-                    {!user.businessName && (
-                      <p className="text-xs text-gray-400 mt-1">Your full name will be used for product listings</p>
-                    )}
                   </div>
                   <div className="pb-3 border-b border-gray-100">
                     <p className="text-sm text-gray-500">Phone Number</p>
                     <p className="text-lg font-medium text-gray-900">{user.phone || 'Not set'}</p>
-                    {!user.phone && (
-                      <p className="text-xs text-orange-500 mt-1">Required for selling and checkout</p>
-                    )}
                   </div>
                   <div className="pb-3">
                     <p className="text-sm text-gray-500">Email Address</p>
@@ -1242,390 +518,11 @@ const saveBankAccount = async () => {
             )}
 
             {/* Bank Account Section */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                  <Banknote className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-semibold text-gray-900">Payout Account</h3>
-                </div>
-                {!showBankForm && !showConfirmation && (
-                  <button
-                    onClick={() => {
-                      setShowBankForm(true);
-                      setBankError('');
-                      setVerifiedAccount(null);
-                    }}
-                    className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
-                  >
-                    {bankAccount ? (
-                      <>
-                        <Edit2 className="w-4 h-4" />
-                        Change <span className="hidden md:inline-block">Account</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        Add Bank <span className="hidden md:inline-block">Account</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-              
-              {!showBankForm && !showConfirmation ? (
-                bankAccount ? (
-                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full hidden md:flex items-center justify-center">
-                          <CreditCard className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{bankAccount.bankName || 'Bank Account'}</p>
-                          <p className="text-lg font-mono font-bold text-gray-900">{bankAccount.accountNumber}</p>
-                          <p className="text-sm text-gray-700 mt-1">
-                            Account Name: {bankAccount.verifiedAccountName || bankAccount.accountName}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={removeBankAccount}
-                        className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition"
-                        title="Remove bank account"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-green-200">
-                      <p className="text-xs text-gray-600 flex items-center gap-1">
-                        <Info className="hidden md:inline-flex w-3 h-3" />
-                        This account will be used for payouts when you sell products on Zoommia or for refund from order cancelation or dispute settlement
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-6 bg-gray-50 rounded-lg text-center border-2 border-dashed border-gray-200">
-                    <Banknote className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">No bank account added</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Add a bank account to receive payouts for your sales
-                    </p>
-                  </div>
-                )
-              ) : showConfirmation && verifiedAccount ? (
-                // Confirmation step - Show verified account details
-                <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Shield className="w-5 h-5 text-green-600" />
-                    <h4 className="font-semibold text-gray-900">Verify Bank Account Details</h4>
-                  </div>
-                  
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-sm text-gray-600 mb-2">We've verified this account with Paystack:</p>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">Bank:</span>
-                        <span className="font-medium text-gray-900">
-                          {banks.find(b => b.code === verifiedAccount.bankCode)?.name || 'Selected Bank'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">Account Number:</span>
-                        <span className="font-mono font-bold text-gray-900">{verifiedAccount.accountNumber}</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2 border-t border-green-200">
-                        <span className="text-sm text-gray-500">Account Name:</span>
-                        <span className="font-semibold text-green-700">{verifiedAccount.accountName}</span>
-                      </div>
-                    </div>
-                    <div className="mt-3 p-2 bg-green-100 rounded flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-600" />
-                      <p className="text-xs text-green-700">Account verified successfully with Paystack</p>
-                    </div>
-                  </div>
-                  
-                  <div className="p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-800 mb-2">Please confirm:</p>
-                    <p className="text-xs text-blue-700">
-                      Is the account name above correct? This account will be used for your payouts.
-                      {bankAccount && ' This will replace your existing bank account.'}
-                    </p>
-                  </div>
-                  
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={saveBankAccount}
-                      disabled={verifyingBank}
-                      className="flex-1 bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition"
-                    >
-                      {verifyingBank ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Saving...
-                        </div>
-                      ) : (
-                        bankAccount ? 'Yes, Update Account' : 'Yes, Add Account'
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowConfirmation(false);
-                        setVerifiedAccount(null);
-                        setShowBankForm(true);
-                      }}
-                      className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
-                    >
-                      No, Go Back
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                // Bank account form - First step
-                <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-gray-900">
-                      {bankAccount ? 'Change Bank Account' : 'Add Bank Account'}
-                    </h4>
-                    <button
-                      onClick={() => {
-                        setShowBankForm(false);
-                        setBankError('');
-                        setBankForm({ accountNumber: '', bankCode: '', bankName: '' });
-                        setSelectedBank('');
-                        setVerifiedAccount(null);
-                      }}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  {bankError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                      <p className="text-sm text-red-600">{bankError}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Select Bank <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={selectedBank}
-                      onChange={(e) => {
-                        const selected = e.target.value;
-                        setSelectedBank(selected);
-                        const bank = banks.find(b => b.code === selected);
-                        setBankForm(prev => ({ 
-                          ...prev, 
-                          bankCode: selected,
-                          bankName: bank?.name || ''
-                        }));
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                      disabled={bankLoading}
-                    >
-                      <option value="">Select your bank</option>
-                      {banks.map(bank => (
-                        <option key={bank.code} value={bank.code}>
-                          {bank.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Account Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={bankForm.accountNumber}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setBankForm(prev => ({ ...prev, accountNumber: value }));
-                      }}
-                      placeholder="0123456789"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                      maxLength="10"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">10-digit account number</p>
-                  </div>
-                  
-                  {bankForm.bankCode && bankForm.accountNumber.length === 10 && (
-                    <div className="p-3 bg-blue-50 rounded-lg flex items-start gap-2">
-                      <Eye className="w-4 h-4 text-blue-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-blue-800 font-medium">Preview Available</p>
-                        <p className="text-xs text-blue-700">
-                          We'll verify this account and show you the account name before saving
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={verifyBankAccount}
-                      disabled={verifyingBank || !bankForm.accountNumber || !bankForm.bankCode}
-                      className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                    >
-                      {verifyingBank ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Verifying...
-                        </div>
-                      ) : (
-                        'Verify Account'
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowBankForm(false);
-                        setBankError('');
-                        setBankForm({ accountNumber: '', bankCode: '', bankName: '' });
-                        setSelectedBank('');
-                        setVerifiedAccount(null);
-                      }}
-                      className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  
-                  <p className="text-xs text-gray-500 text-center">
-                    We'll verify your account with Paystack and show you the account name for confirmation
-                  </p>
-                </div>
-              )}
-            </div>
+            <BankAccountSection user={user} />
 
             {/* Delivery Location Section */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                  <Navigation className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-semibold text-gray-900">Delivery Location</h3>
-                </div>
-                <button
-                  onClick={() => {
-                    setEditingLocation(!editingLocation);
-                    if (!editingLocation && availableStates.length === 0) {
-                      fetchStates();
-                    }
-                  }}
-                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
-                >
-                  {editingLocation ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-                  {editingLocation ? 'Cancel' : 'Change'}
-                </button>
-              </div>
-              
-              {!editingLocation ? (
-                <div className="p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border border-orange-200">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-orange-600" />
-                    <div>
-                      <p className="text-sm text-gray-600">Delivery Location:</p>
-                      <p className="font-semibold text-gray-900">
-                        {currentLocation.city && currentLocation.state 
-                          ? `${currentLocation.city}, ${currentLocation.state}`
-                          : 'No location set'}
-                      </p>
-                    </div>
-                    {currentLocation.city && currentLocation.state && (
-                      <Check className="w-5 h-5 text-green-600 ml-auto" />
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Only products available for delivery to this location will be shown
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-                  {locationError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                      <p className="text-sm text-red-600">{locationError}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select State
-                    </label>
-                    <select
-                      value={tempState}
-                      onChange={(e) => handleStateChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="">Choose a state</option>
-                      {availableStates.map(state => (
-                        <option key={state} value={state}>{state}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {tempState && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Select City in {tempState}
-                      </label>
-                      {locationLoading ? (
-                        <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-                          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-2"></div>
-                          <p className="text-sm text-gray-500">Loading cities...</p>
-                        </div>
-                      ) : availableCities.length > 0 ? (
-                        <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                          {availableCities.map(city => (
-                            <button
-                              key={city}
-                              onClick={() => setTempCity(city)}
-                              className={`w-full text-left px-4 py-2 hover:bg-orange-50 transition ${
-                                tempCity === city ? 'bg-orange-50 text-orange-600 font-medium' : 'text-gray-700'
-                              }`}
-                            >
-                              {city}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-                          <p className="text-sm text-gray-500">No cities found for {tempState}</p>
-                          <p className="text-xs text-gray-400 mt-1">Try selecting a different state</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {tempState && tempCity && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-700">
-                        Selected: <strong>{tempCity}, {tempState}</strong>
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={saveLocation}
-                      disabled={!tempState || !tempCity || locationLoading}
-                      className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Save Location
-                    </button>
-                  </div>
-                  
-                  <p className="text-xs text-gray-500 text-center">
-                    Your delivery location determines which products you can see and buy
-                  </p>
-                </div>
-              )}
-            </div>
-            
+            <DeliveryLocationSection />
+
             {/* Delivery Addresses Section */}
             <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="flex justify-between items-center mb-4">
@@ -1664,9 +561,7 @@ const saveBankAccount = async () => {
                 <div className="p-6 bg-gray-50 rounded-lg text-center border-2 border-dashed border-gray-200">
                   <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 font-medium">No delivery addresses added</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Add a delivery address to speed up checkout
-                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Add a delivery address to speed up checkout</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1767,6 +662,7 @@ const saveBankAccount = async () => {
           </div>
         )}
         
+        {/* Payouts Tab */}
         {activeTab === 'payouts' && (
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-6">My Payouts</h2>
@@ -1848,9 +744,7 @@ const saveBankAccount = async () => {
               
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address Type
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address Type</label>
                   <select
                     value={addressForm.type}
                     onChange={(e) => setAddressForm({ ...addressForm, type: e.target.value })}
@@ -1863,9 +757,7 @@ const saveBankAccount = async () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">State <span className="text-red-500">*</span></label>
                   <select
                     value={selectedAddressState}
                     onChange={(e) => handleAddressStateChange(e.target.value)}
@@ -1880,9 +772,7 @@ const saveBankAccount = async () => {
 
                 {selectedAddressState && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      City <span className="text-red-500">*</span>
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
                     {addressCityLoading ? (
                       <div className="text-center py-4 bg-gray-50 rounded-lg">
                         <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div>
@@ -1905,7 +795,6 @@ const saveBankAccount = async () => {
                     ) : (
                       <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-500">No cities found</p>
-                        <p className="text-xs text-gray-400 mt-1">Please select a different state</p>
                       </div>
                     )}
                   </div>
@@ -1914,82 +803,46 @@ const saveBankAccount = async () => {
                 {selectedAddressState && selectedAddressCity && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Street Address <span className="text-red-500">*</span>
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Street Address <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={addressForm.street}
                         onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="House number, street name"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        House/Building Description
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">House/Building Description</label>
                       <textarea
                         value={addressForm.houseDescription}
                         onChange={(e) => setAddressForm({ ...addressForm, houseDescription: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                        placeholder="e.g., Blue gate, 2-storey building, Opposite the church"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         rows="2"
+                        placeholder="e.g., Blue gate, 2-storey building"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Help the delivery rider identify your building</p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Nearest Landmark
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nearest Landmark</label>
                       <input
                         type="text"
                         value={addressForm.landmark}
                         onChange={(e) => setAddressForm({ ...addressForm, landmark: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                        placeholder="e.g., Near the market, Beside the bank"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="e.g., Near the market"
                       />
-                      <p className="text-xs text-gray-500 mt-1">A well-known location near your address</p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Who to Ask For
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Who to Ask For</label>
                       <input
                         type="text"
                         value={addressForm.askFor}
                         onChange={(e) => setAddressForm({ ...addressForm, askFor: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                        placeholder="e.g., Security guard, Receptionist, John"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Name or title of the person to contact upon arrival</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Postal Code <span className="text-gray-400 text-xs">(Optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={addressForm.postalCode}
-                        onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                        placeholder="e.g., 100001"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Country
-                      </label>
-                      <input
-                        type="text"
-                        value="Nigeria"
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="e.g., Security guard"
                       />
                     </div>
 
@@ -2004,21 +857,12 @@ const saveBankAccount = async () => {
                     </label>
                   </>
                 )}
-
-                {selectedAddressState && selectedAddressCity && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-xs text-green-700 flex items-center gap-1">
-                      <Check className="w-3 h-3" />
-                      Address location: <strong>{selectedAddressCity}, {selectedAddressState}</strong>
-                    </p>
-                  </div>
-                )}
                 
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={editingAddress ? updateAddress : addAddress}
                     disabled={loading || !selectedAddressState || !selectedAddressCity || !addressForm.street}
-                    className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50"
                   >
                     {loading ? 'Saving...' : (editingAddress ? 'Update Address' : 'Add Address')}
                   </button>

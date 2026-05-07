@@ -1,4 +1,3 @@
-// CartPage.jsx - With product name limited to 2 lines
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -107,8 +106,7 @@ const CartPage = () => {
     const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
     
     const itemsForCheckout = selectedCartItems.map(item => {
-      const itemShippingCost = item.shipping?.free ? 0 : (item.shipping?.cost || 0);
-      const totalShipping = itemShippingCost * item.quantity;
+      const totalShipping = (item.deliveryPrice || 0) * item.quantity;
       const totalProductPrice = item.price * item.quantity;
       
       return {
@@ -116,7 +114,7 @@ const CartPage = () => {
         calculatedShipping: totalShipping,
         calculatedSubtotal: totalProductPrice,
         calculatedTotal: totalProductPrice + totalShipping,
-        perItemShipping: itemShippingCost,
+        perItemShipping: item.deliveryPrice || 0,
       };
     });
     
@@ -138,11 +136,7 @@ const CartPage = () => {
   const selectedCartItems = localCartItems.filter((_, index) => selectedItems[index]);
   
   const subtotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = selectedCartItems.reduce((sum, item) => {
-    if (item.shipping?.free) return sum + 0;
-    const itemShippingCost = item.shipping?.cost || 0;
-    return sum + (itemShippingCost * item.quantity);
-  }, 0);
+  const shipping = selectedCartItems.reduce((sum, item) => sum + ((item.deliveryPrice || 0) * item.quantity), 0);
   const total = subtotal + shipping;
   const selectedCount = selectedCartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -216,7 +210,6 @@ const CartPage = () => {
                       />
                     </div>
                     <div className="flex-1">
-                      {/* Product Title with line-clamp-2 to limit to 2 lines */}
                       <h3 
                         className="font-semibold text-gray-900 mb-1 cursor-pointer hover:text-orange-500 transition line-clamp-2"
                         onClick={() => handleProductClick(item.id)}
@@ -225,10 +218,10 @@ const CartPage = () => {
                       </h3>
                       {item.variant && <p className="text-sm text-gray-500 mb-2">Variant: {item.variant.name}</p>}
                       <p className="text-orange-600 font-bold">{formatPrice(item.price)}</p>
-                      {item.shipping && !item.shipping.free && item.shipping.cost > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">Shipping: {formatPrice(item.shipping.cost)} per item</p>
+                      {item.deliveryPrice > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">Delivery: {formatPrice(item.deliveryPrice)}</p>
                       )}
-                      {item.shipping?.free && <p className="text-xs text-green-600 mt-1">Free shipping</p>}
+                      {item.deliveryPrice === 0 && <p className="text-xs text-green-600 mt-1">Free delivery</p>}
                       <div className="flex items-center gap-4 mt-3">
                         <div className="flex items-center gap-2">
                           <button 
@@ -258,8 +251,8 @@ const CartPage = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-900">{formatPrice(item.price * item.quantity)}</p>
-                    {item.shipping && !item.shipping.free && item.shipping.cost > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">Shipping: {formatPrice(item.shipping.cost * item.quantity)}</p>
+                    {item.deliveryPrice > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">Delivery: {formatPrice(item.deliveryPrice * item.quantity)}</p>
                     )}
                   </div>
                 </div>
@@ -291,7 +284,7 @@ const CartPage = () => {
                     <span className="font-medium">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
-                    <span>Shipping</span>
+                    <span>Delivery</span>
                     <span className="font-medium">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>
                   </div>
                 </div>

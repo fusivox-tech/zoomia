@@ -1,4 +1,3 @@
-// ProductDetail.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
@@ -112,6 +111,71 @@ const RelatedProductCard = ({ product, formatPrice, navigate }) => (
   </div>
 );
 
+// Helper function to calculate delivery price from embedded config
+const calculateDeliveryPriceFromConfig = (deliveryConfig, buyerState, buyerCity, buyerNeighborhood, quantity = 1) => {
+  if (!deliveryConfig || !deliveryConfig.zones || deliveryConfig.zones.length === 0) {
+    return 0;
+  }
+  
+  const zones = deliveryConfig.zones;
+  let matchingZone = null;
+  
+  // Priority: neighborhood > city > state > nationwide
+  // 1. Check for exact neighborhood match
+  if (buyerNeighborhood) {
+    matchingZone = zones.find(zone => 
+      zone.type === 'neighborhood' &&
+      zone.state?.toLowerCase() === buyerState?.toLowerCase() &&
+      zone.city?.toLowerCase() === buyerCity?.toLowerCase() &&
+      zone.neighborhood?.toLowerCase() === buyerNeighborhood?.toLowerCase()
+    );
+  }
+  
+  // 2. Check for city match
+  if (!matchingZone && buyerCity) {
+    matchingZone = zones.find(zone =>
+      zone.type === 'city' &&
+      zone.state?.toLowerCase() === buyerState?.toLowerCase() &&
+      zone.city?.toLowerCase() === buyerCity?.toLowerCase()
+    );
+  }
+  
+  // 3. Check for state match
+  if (!matchingZone && buyerState) {
+    matchingZone = zones.find(zone =>
+      zone.type === 'state' &&
+      zone.state?.toLowerCase() === buyerState?.toLowerCase()
+    );
+  }
+  
+  // 4. Check for nationwide
+  if (!matchingZone) {
+    matchingZone = zones.find(zone => zone.type === 'nationwide');
+  }
+  
+  if (matchingZone) {
+    let finalPrice = matchingZone.price;
+    
+    // Apply bulk discount if applicable
+    const discountConfig = matchingZone.discountOnQuantity?.enabled 
+      ? matchingZone.discountOnQuantity 
+      : deliveryConfig.bulkDiscounts;
+    
+    if (discountConfig?.enabled && quantity >= discountConfig.minQuantity) {
+      if (discountConfig.discountType === 'percentage') {
+        const discountAmount = (finalPrice * discountConfig.discountValue) / 100;
+        finalPrice = finalPrice - discountAmount;
+      } else if (discountConfig.discountType === 'fixed') {
+        finalPrice = Math.max(0, finalPrice - discountConfig.discountValue);
+      }
+    }
+    
+    return finalPrice;
+  }
+  
+  return 0;
+};
+
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -124,6 +188,8 @@ const ProductDetail = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
   
   // Related products state
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -135,14 +201,18 @@ const ProductDetail = () => {
   const [deliveryPrice, setDeliveryPrice] = useState(0);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
 
+  // Minimum swipe distance required (in pixels)
+  const minSwipeDistance = 50;
+
   // Load user's location from localStorage
   useEffect(() => {
     const savedCity = localStorage.getItem('buyerCity');
     const savedState = localStorage.getItem('buyerState');
+    const savedNeighborhood = localStorage.getItem('buyerNeighborhood');
     const locationSelected = localStorage.getItem('locationSelected');
     
-    if (savedCity && savedState && locationSelected === 'true') {
-      setBuyerLocation({ city: savedCity, state: savedState });
+    if (savedCity && savedState && savedNeighborhood && locationSelected === 'true') {
+      setBuyerLocation({ city: savedCity, state: savedState, neighborhood: savedNeighborhood });
     }
     setIsLocationLoading(false);
   }, []);
@@ -154,24 +224,28 @@ const ProductDetail = () => {
   // Calculate delivery price whenever product or buyer location changes
   useEffect(() => {
     if (product && buyerLocation) {
-      calculateDeliveryPrice();
+      const price = calculateDeliveryPriceFromConfig(
+        product.deliveryConfig,
+        buyerLocation.state,
+        buyerLocation.city,
+        buyerLocation.neighborhood,
+        quantity
+      );
+      setDeliveryPrice(price);
     }
-  }, [product, buyerLocation]);
+  }, [product, buyerLocation, quantity]);
 
   // Fetch related products ONLY when product is fully loaded
   useEffect(() => {
-    if (product && !loading) {
+    if (product && !loading && buyerLocation) {
       fetchRelatedProducts();
     }
-  }, [product, loading]);
+  }, [product, loading, buyerLocation]);
 
   const fetchProduct = async () => {
     setLoading(true);
     try {
       let url = `${API_BASE_URL}/products/${id}`;
-      if (buyerLocation) {
-        url += `?city=${encodeURIComponent(buyerLocation.city)}&state=${encodeURIComponent(buyerLocation.state)}`;
-      }
       
       const response = await fetch(url);
       const data = await response.json();
@@ -192,23 +266,31 @@ const ProductDetail = () => {
   const fetchRelatedProducts = async () => {
     setLoadingRelated(true);
     try {
-      // Get the first category only (primary category)
       const primaryCategory = product.categories?.[0] || product.category;
       
       if (!primaryCategory) {
-        console.log('No category found for related products');
         setLoadingRelated(false);
         return;
       }
       
-      // Fetch products from the same primary category, limit to 20, exclude current product
-      const response = await fetch(
-        `${API_BASE_URL}/products?category=${encodeURIComponent(primaryCategory)}&limit=20&page=1`
-      );
+      let url = `${API_BASE_URL}/products?category=${encodeURIComponent(primaryCategory)}&limit=20&page=1`;
+      
+      if (buyerLocation) {
+        if (buyerLocation.city) {
+          url += `&city=${encodeURIComponent(buyerLocation.city)}`;
+        }
+        if (buyerLocation.state) {
+          url += `&state=${encodeURIComponent(buyerLocation.state)}`;
+        }
+        if (buyerLocation.neighborhood) {
+          url += `&neighborhood=${encodeURIComponent(buyerLocation.neighborhood)}`;
+        }
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.success && !data.groupedByCategory) {
-        // Filter out current product and limit to 10
         const filtered = data.data.filter(p => p._id !== product._id).slice(0, 10);
         setRelatedProducts(filtered);
       }
@@ -216,23 +298,6 @@ const ProductDetail = () => {
       console.error('Error fetching related products:', error);
     } finally {
       setLoadingRelated(false);
-    }
-  };
-
-  const calculateDeliveryPrice = () => {
-    if (!product || !buyerLocation) return;
-    
-    const deliveryZone = product.deliveryZones?.find(
-      zone => zone.city?.toLowerCase() === buyerLocation.city?.toLowerCase() && 
-              zone.state?.toLowerCase() === buyerLocation.state?.toLowerCase()
-    );
-    
-    if (deliveryZone && deliveryZone.price !== undefined) {
-      setDeliveryPrice(deliveryZone.price);
-    } else if (product.shipping?.cost !== undefined) {
-      setDeliveryPrice(product.shipping.cost || 0);
-    } else {
-      setDeliveryPrice(0);
     }
   };
 
@@ -265,11 +330,11 @@ const ProductDetail = () => {
       variant: selectedVariant,
       sellerId: product.sellerId,
       sellerName: product.sellerName,
+      sellerEmail: product.sellerEmail,
+      sellerPhone: product.sellerPhone,
       maxStock: getCurrentStock(),
-      shipping: {
-        ...product.shipping,
-        cost: deliveryPrice
-      }
+      deliveryPrice: deliveryPrice,
+      deliveryConfig: product.deliveryConfig
     };
     
     addToCart(cartItem);
@@ -292,15 +357,50 @@ const ProductDetail = () => {
       variant: selectedVariant,
       sellerId: product.sellerId,
       sellerName: product.sellerName,
+      sellerEmail: product.sellerEmail,
+      sellerPhone: product.sellerPhone,
       maxStock: getCurrentStock(),
-      shipping: {
-        ...product.shipping,
-        cost: deliveryPrice
-      }
+      deliveryPrice: deliveryPrice,
+      deliveryConfig: product.deliveryConfig
     };
     
     addToCart(cartItem);
     navigate('/cart');
+  };
+
+  // Touch event handlers for swipe
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      // Swipe left - next image
+      if (product.images && product.images.length > 0) {
+        setSelectedImage((prev) => (prev + 1) % product.images.length);
+      }
+    }
+    
+    if (isRightSwipe) {
+      // Swipe right - previous image
+      if (product.images && product.images.length > 0) {
+        setSelectedImage((prev) => (prev - 1 + product.images.length) % product.images.length);
+      }
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
   };
 
   const nextImage = () => {
@@ -329,7 +429,21 @@ const ProductDetail = () => {
 
   const handleViewMoreRelated = () => {
     const primaryCategory = product.categories?.[0] || product.category;
-    navigate(`/search?category=${encodeURIComponent(primaryCategory)}`);
+    let url = `/search?category=${encodeURIComponent(primaryCategory)}`;
+    
+    if (buyerLocation) {
+      if (buyerLocation.city) {
+        url += `&city=${encodeURIComponent(buyerLocation.city)}`;
+      }
+      if (buyerLocation.state) {
+        url += `&state=${encodeURIComponent(buyerLocation.state)}`;
+      }
+      if (buyerLocation.neighborhood) {
+        url += `&neighborhood=${encodeURIComponent(buyerLocation.neighborhood)}`;
+      }
+    }
+    
+    navigate(url);
   };
 
   const getDescriptionLength = () => {
@@ -351,7 +465,7 @@ const ProductDetail = () => {
             Delivery Location Required
           </h2>
           <p className="text-gray-500 mb-4 max-w-md mx-auto">
-            Please set your delivery location to see accurate shipping costs and proceed with purchase.
+            Please set your delivery location (including neighborhood) to see accurate shipping costs and proceed with purchase.
           </p>
           <button
             onClick={() => navigate('/profile')}
@@ -394,22 +508,26 @@ const ProductDetail = () => {
 
   const currentPrice = getCurrentPrice();
   const currentStock = getCurrentStock();
-  const isFreeShipping = product.shipping?.free || deliveryPrice === 0;
+  const isFreeShipping = deliveryPrice === 0;
   const primaryCategory = product.categories?.[0] || product.category;
   const hasMultipleImages = product.images && product.images.length > 1;
 
   return (
     <div className="px-4 py-4">
       <div className="max-w-7xl mx-auto">
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-          {/* Image Gallery with Chevron Navigation */}
+          {/* Image Gallery with Chevron Navigation and Swipe Support */}
           <div className="relative">
-            <div className="border border-gray-200 bg-white relative">
+            <div 
+              className="border border-gray-200 bg-white relative touch-pan-y select-none"
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
               <img 
                 src={product.images?.[selectedImage] || '/placeholder.png'} 
                 alt={product.title}
-                className="w-full h-auto object-contain max-h-96"
+                className="w-full h-auto object-contain max-h-96 pointer-events-none"
               />
               
               {/* Left Chevron Button */}
@@ -433,6 +551,15 @@ const ProductDetail = () => {
                   <ChevronRight className="w-6 h-6" />
                 </button>
               )}
+              
+              {/* Swipe Hint (visible on mobile) */}
+              {hasMultipleImages && (
+                <div className="absolute bottom-2 left-0 right-0 text-center md:hidden">
+                  <p className="text-xs text-white bg-black/50 inline-block px-2 py-1 rounded-full">
+                    ← Swipe to view more →
+                  </p>
+                </div>
+              )}
             </div>
             
             {/* Dot Indicators */}
@@ -453,13 +580,13 @@ const ProductDetail = () => {
               </div>
             )}
 
-<button
-  onClick={() => navigate(`/seller-store/${product.sellerId}`)}
-  className="flex w-full mt-4 items-center gap-2 px-3 py-2 text-sm bg-gray-100 justify-center text-gray-700 rounded-sm hover:bg-gray-200 transition"
->
-  <Store className="w-4 h-4" />
-  Visit Seller's Store
-</button>
+            <button
+              onClick={() => navigate(`/seller-store/${product.sellerId}`)}
+              className="flex w-full mt-4 items-center gap-2 px-3 py-2 text-sm bg-gray-100 justify-center text-gray-700 rounded-sm hover:bg-gray-200 transition"
+            >
+              <Store className="w-4 h-4" />
+              Visit Seller's Store
+            </button>
           </div>
 
           {/* Product Info */}
@@ -568,20 +695,16 @@ const ProductDetail = () => {
               <div className="flex items-center gap-3">
                 <Truck className="w-5 h-5 text-gray-500" />
                 <div>
-                  <p className="text-sm font-medium">Shipping to {buyerLocation?.city}</p>
+                  <p className="text-sm font-medium">Shipping to {buyerLocation?.neighborhood}, {buyerLocation?.city}, {buyerLocation?.state}</p>
                   <p className="text-xs text-gray-500">
                     {isFreeShipping ? (
                       <span className="text-green-600">Free shipping</span>
                     ) : (
                       <>
                         ₦{deliveryPrice.toLocaleString()} delivery fee
-                        {product.shipping?.estimatedDays && ` • Estimated ${product.shipping.estimatedDays} days`}
                       </>
                     )}
                   </p>
-                  {!buyerLocation && (
-                    <p className="text-xs text-orange-500 mt-1">Please set your delivery location</p>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -756,12 +879,12 @@ const ProductDetail = () => {
           </div>
         )}
         
-<ProductReviews 
-  productId={product._id} 
-  onReviewCountChange={(count) => {
-    // Optionally update something when review count changes
-  }}
-/>
+        <ProductReviews 
+          productId={product._id} 
+          onReviewCountChange={(count) => {
+            // Optionally update something when review count changes
+          }}
+        />
         
         {/* Login reminder for non-logged in users */}
         {!user && (
@@ -773,7 +896,7 @@ const ProductDetail = () => {
               onClick={() => navigate('/login')}
               className="mt-2 text-orange-500 hover:text-orange-600 font-medium"
             >
-              Login Now →
+              Login Now
             </button>
           </div>
         )}

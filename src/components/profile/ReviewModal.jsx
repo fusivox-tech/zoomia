@@ -1,8 +1,9 @@
+// profile/ReviewModal.jsx
 import { useState, useEffect } from 'react';
 import { Star, X } from 'lucide-react';
 import axios from 'axios';
-import API_BASE_URL from '../config';
-import { useData } from '../contexts/DataContext';
+import API_BASE_URL from '../../config';
+import { useData } from '../../contexts/DataContext';
 
 const StarRating = ({ rating, onRatingChange, size = 'large' }) => {
   const [hoverRating, setHoverRating] = useState(0);
@@ -32,8 +33,6 @@ const StarRating = ({ rating, onRatingChange, size = 'large' }) => {
   );
 };
 
-// Update the endpoint and product handling:
-
 const ReviewModal = ({ isOpen, onClose, orderId, product, seller, onReviewSubmitted, type }) => {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -48,7 +47,6 @@ const ReviewModal = ({ isOpen, onClose, orderId, product, seller, onReviewSubmit
     ? `${API_BASE_URL}/reviews/product/${product?.id}`
     : `${API_BASE_URL}/reviews/seller/${seller?.sellerId}`;
 
-  // Fetch existing review on mount
   useEffect(() => {
     if (isOpen && orderId) {
       fetchExistingReview();
@@ -88,21 +86,37 @@ const ReviewModal = ({ isOpen, onClose, orderId, product, seller, onReviewSubmit
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        endpoint,
-        {
+      
+      // Determine the correct endpoint and data structure
+      let requestData;
+      let requestUrl;
+      
+      if (isProductReview) {
+        requestUrl = `${API_BASE_URL}/reviews/product/${product?.id}`;
+        requestData = {
           orderId,
           rating,
-          comment,
-          ...(isProductReview ? { productId: product?.id } : { sellerId: seller?.sellerId }),
-          ...(existingReview && { reviewId: existingReview._id })
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+          comment
+        };
+      } else {
+        requestUrl = `${API_BASE_URL}/reviews/seller/${seller?.sellerId}`;
+        requestData = {
+          orderId,
+          rating,
+          comment
+        };
+      }
+      
+      const response = await axios.post(requestUrl, requestData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       if (response.data.success) {
-        onReviewSubmitted();
+        if (onReviewSubmitted) onReviewSubmitted();
         onClose();
+        // Reset form
+        setRating(0);
+        setComment('');
       }
     } catch (error) {
       console.error('Error submitting review:', error);
@@ -119,7 +133,7 @@ const ReviewModal = ({ isOpen, onClose, orderId, product, seller, onReviewSubmit
       <div className="bg-white rounded-xl max-w-md w-full">
         <div className="flex justify-between items-center p-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold">
-            {existingReview ? 'Edit Your Review' : `${title}`}
+            {existingReview ? 'Edit Your Review' : title}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />

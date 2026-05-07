@@ -1,8 +1,8 @@
 // components/SellerDeliveryZones.jsx 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useData } from '../contexts/DataContext';
-import API_BASE_URL from '../config';
+import { useData } from '../../contexts/DataContext';
+import API_BASE_URL from '../../config';
 import { MapPin, Plus, X, ChevronDown, ChevronUp, Truck, Tag, Globe, Layers } from 'lucide-react';
 
 const SellerDeliveryZones = ({ productId, currentZones = [], onZonesUpdate }) => {

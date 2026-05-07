@@ -1,4 +1,3 @@
-// PaymentPage.jsx - Use pre-calculated values from CartPage
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, ArrowLeft, Loader, AlertCircle, MapPin, User, Phone, Truck, ShoppingBag, Banknote, Clock, Calendar, RotateCcw, Info, AlertTriangle } from 'lucide-react';
@@ -20,87 +19,84 @@ const PaymentPage = () => {
   const [validatedItems, setValidatedItems] = useState([]);
   const [validatingItems, setValidatingItems] = useState(true);
   const [validationError, setValidationError] = useState('');
-  const [buyerLocation, setBuyerLocation] = useState({ city: '', state: '' });
+  const [buyerLocation, setBuyerLocation] = useState({ city: '', state: '', neighborhood: '' });
   const [checkoutTotals, setCheckoutTotals] = useState({ subtotal: 0, shipping: 0, total: 0 });
   const hasProcessed = useRef(false);
   const navigate = useNavigate();
 
-// In PaymentPage.jsx useEffect
-useEffect(() => {
-  if (hasProcessed.current) return;
-  hasProcessed.current = true;
-  
-  // Get pre-calculated items and totals from CartPage
-  const selectedItemsStr = localStorage.getItem('selectedCartItems');
-  const totalsStr = localStorage.getItem('checkoutTotals');
-  
-  if (!selectedItemsStr || !totalsStr) {
-    navigate('/cart');
-    return;
-  }
-  
-  const items = JSON.parse(selectedItemsStr);
-  const totals = JSON.parse(totalsStr);
-  
-  if (items.length === 0) {
-    navigate('/cart');
-    return;
-  }
-  
-  setValidatedItems(items);
-  setCheckoutTotals(totals);
-  
-  const token = localStorage.getItem('token');
-  if (!token || !user) {
-    navigate('/cart');
-    return;
-  }
-  
-  const savedCity = localStorage.getItem('buyerState');
-  const savedState = localStorage.getItem('buyerCity');
-  if (savedCity && savedState) {
-    setBuyerLocation({ city: savedCity, state: savedState });
-  }
-  
-  fetchUserData();
-  setValidatingItems(false);
-}, [navigate, user]);
-
-// Update the fetchUserData function
-const fetchUserData = async () => {
-  try {
+  useEffect(() => {
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
+    
+    const selectedItemsStr = localStorage.getItem('selectedCartItems');
+    const totalsStr = localStorage.getItem('checkoutTotals');
+    
+    if (!selectedItemsStr || !totalsStr) {
+      navigate('/cart');
+      return;
+    }
+    
+    const items = JSON.parse(selectedItemsStr);
+    const totals = JSON.parse(totalsStr);
+    
+    if (items.length === 0) {
+      navigate('/cart');
+      return;
+    }
+    
+    setValidatedItems(items);
+    setCheckoutTotals(totals);
+    
     const token = localStorage.getItem('token');
+    if (!token || !user) {
+      navigate('/cart');
+      return;
+    }
     
-    const addressesResponse = await axios.get(`${API_BASE_URL}/user/addresses`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const savedState = localStorage.getItem('buyerState');
+    const savedCity = localStorage.getItem('buyerCity');
+    const savedNeighborhood = localStorage.getItem('buyerNeighborhood');
+    if (savedState && savedCity && savedNeighborhood) {
+      setBuyerLocation({ city: savedCity, state: savedState, neighborhood: savedNeighborhood });
+    }
     
-    if (addressesResponse.data.success) {
-      setAddresses(addressesResponse.data.data);
-      const defaultAddress = addressesResponse.data.data.find(addr => addr.isDefault);
-      if (defaultAddress) {
-        setSelectedAddressId(defaultAddress._id);
-      } else if (addressesResponse.data.data.length > 0) {
-        setSelectedAddressId(addressesResponse.data.data[0]._id);
+    fetchUserData();
+    setValidatingItems(false);
+  }, [navigate, user]);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      const addressesResponse = await axios.get(`${API_BASE_URL}/user/addresses`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (addressesResponse.data.success) {
+        setAddresses(addressesResponse.data.data);
+        const defaultAddress = addressesResponse.data.data.find(addr => addr.isDefault);
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress._id);
+        } else if (addressesResponse.data.data.length > 0) {
+          setSelectedAddressId(addressesResponse.data.data[0]._id);
+        }
       }
+      
+      const checkoutResponse = await axios.get(`${API_BASE_URL}/user/can-checkout`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (checkoutResponse.data.success) {
+        const checkoutStatus = checkoutResponse.data;
+        setMissingFields(checkoutStatus.missingFields);
+        setProfileComplete(checkoutStatus.canCheckout);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setLoadingAddresses(false);
     }
-    
-    // Use the can-checkout endpoint
-    const checkoutResponse = await axios.get(`${API_BASE_URL}/user/can-checkout`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (checkoutResponse.data.success) {
-      const checkoutStatus = checkoutResponse.data;
-      setMissingFields(checkoutStatus.missingFields);
-      setProfileComplete(checkoutStatus.canCheckout);
-    }
-  } catch (error) {
-    console.error('Error fetching user data:', error);
-  } finally {
-    setLoadingAddresses(false);
-  }
-};
+  };
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-NG', {
@@ -111,67 +107,86 @@ const fetchUserData = async () => {
     }).format(price);
   };
 
-// PaymentPage.jsx - Add seller emails to order data
-const initializePaystackPayment = async () => {
-  if (!profileComplete) {
-    setShowProfileWarning(true);
-    return;
-  }
-  
-  if (!selectedAddressId) {
-    showError('Please select a delivery address');
-    return;
-  }
-  
-  if (validatedItems.length === 0) {
-    showError('No valid items in cart');
-    return;
-  }
-  
-  setProcessing(true);
-  
-  try {
-    const selectedAddress = addresses.find(addr => addr._id === selectedAddressId);
-    const reference = `ZOOMMIA_${user._id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const initializePaystackPayment = async () => {
+    if (!profileComplete) {
+      setShowProfileWarning(true);
+      return;
+    }
     
-    const orderData = {
-      reference: reference,
-      amount: Math.round(checkoutTotals.total * 100),
-      buyerEmail: user.email,
-      buyerFullName: user.fullName,
-      buyerPhone: user.phone,
-      buyerId: user._id,
-      deliveryAddress: selectedAddress,
-      items: validatedItems,
-      subtotal: checkoutTotals.subtotal,
-      shipping: checkoutTotals.shipping,
-      total: checkoutTotals.total,
-      buyerLocation: buyerLocation,
-    };
-
-    const headers = getAuthHeaders ? getAuthHeaders() : {};
-    const response = await axios.post(`${API_BASE_URL}/payment/initialize`, orderData, {
-      headers: headers
-    });
-
-    if (response.data.success && response.data.data.authorization_url) {
-      localStorage.setItem('pendingPaymentRef', reference);
-      localStorage.setItem('pendingOrderData', JSON.stringify(orderData));
-      setShowModal(true);
+    if (!selectedAddressId) {
+      showError('Please select a delivery address');
+      return;
+    }
+    
+    if (validatedItems.length === 0) {
+      showError('No valid items in cart');
+      return;
+    }
+    
+    setProcessing(true);
+    
+    try {
+      const selectedAddress = addresses.find(addr => addr._id === selectedAddressId);
+      const reference = `ZOOMIA_${user._id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       
-      setTimeout(() => {
-        window.location.href = response.data.data.authorization_url;
-      }, 1500);
-    } else {
-      showError(response.data.message || 'Failed to initialize payment');
+      // Calculate total amount including delivery
+      const totalAmount = checkoutTotals.total;
+      
+      const orderData = {
+        reference: reference,
+        amount: Math.round(totalAmount * 100),
+        buyerEmail: user.email,
+        buyerFullName: user.fullName,
+        buyerPhone: user.phone,
+        buyerId: user._id,
+        deliveryAddress: {
+          ...selectedAddress,
+          neighborhood: buyerLocation.neighborhood
+        },
+        items: validatedItems.map(item => ({
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+          variant: item.variant,
+          sellerId: item.sellerId,
+          sellerName: item.sellerName,
+          sellerEmail: item.sellerEmail,
+          sellerPhone: item.sellerPhone,
+          deliveryPrice: item.deliveryPrice || 0,
+          totalPrice: item.calculatedSubtotal || (item.price * item.quantity),
+          calculatedShipping: item.calculatedShipping || ((item.deliveryPrice || 0) * item.quantity)
+        })),
+        subtotal: checkoutTotals.subtotal,
+        shipping: checkoutTotals.shipping,
+        total: totalAmount,
+        buyerLocation: buyerLocation,
+      };
+
+      const headers = getAuthHeaders ? getAuthHeaders() : {};
+      const response = await axios.post(`${API_BASE_URL}/payment/initialize`, orderData, {
+        headers: headers
+      });
+
+      if (response.data.success && response.data.data.authorization_url) {
+        localStorage.setItem('pendingPaymentRef', reference);
+        localStorage.setItem('pendingOrderData', JSON.stringify(orderData));
+        setShowModal(true);
+        
+        setTimeout(() => {
+          window.location.href = response.data.data.authorization_url;
+        }, 1500);
+      } else {
+        showError(response.data.message || 'Failed to initialize payment');
+        setProcessing(false);
+      }
+    } catch (error) {
+      console.error('Payment initialization error:', error);
+      showError(error.response?.data?.message || 'Failed to initialize payment. Please try again.');
       setProcessing(false);
     }
-  } catch (error) {
-    console.error('Payment initialization error:', error);
-    showError(error.response?.data?.message || 'Failed to initialize payment. Please try again.');
-    setProcessing(false);
-  }
-};
+  };
 
   if (!user) {
     return (
@@ -219,6 +234,15 @@ const initializePaystackPayment = async () => {
                 <MapPin className="w-5 h-5 text-orange-500" /> Delivery Address
               </h2>
               
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Your Delivery Location:</strong> {buyerLocation.neighborhood}, {buyerLocation.city}, {buyerLocation.state}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Delivery prices are calculated based on your neighborhood
+                </p>
+              </div>
+              
               {addresses.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-gray-500 mb-3">No saved addresses found</p>
@@ -260,7 +284,7 @@ const initializePaystackPayment = async () => {
                     </div>
                     <div className="flex justify-between text-xs text-gray-500 mb-1">
                       <span>Delivery fee:</span>
-                      <span>{formatPrice(item.calculatedShipping || ((item.shipping?.cost || 0) * item.quantity))}</span>
+                      <span>{formatPrice(item.calculatedShipping || ((item.deliveryPrice || 0) * item.quantity))}</span>
                     </div>
                   </div>
                 ))}
@@ -268,7 +292,7 @@ const initializePaystackPayment = async () => {
               
               <div className="space-y-2 mb-4 pt-4 border-t border-gray-200">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(checkoutTotals.subtotal)}</span></div>
-                <div className="flex justify-between"><span>Shipping</span><span>{checkoutTotals.shipping === 0 ? 'Free' : formatPrice(checkoutTotals.shipping)}</span></div>
+                <div className="flex justify-between"><span>Delivery</span><span>{checkoutTotals.shipping === 0 ? 'Free' : formatPrice(checkoutTotals.shipping)}</span></div>
               </div>
               
               <div className="flex justify-between text-xl font-bold pt-4 border-t border-gray-200">
@@ -293,7 +317,6 @@ const initializePaystackPayment = async () => {
               
               {showPolicies && (
                 <div className="px-6 pb-6 space-y-4 border-t border-gray-100 pt-4">
-                  {/* Cancellation Policy */}
                   <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -312,7 +335,6 @@ const initializePaystackPayment = async () => {
                     </div>
                   </div>
 
-                  {/* Delivery Timeline */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="flex items-start gap-3">
@@ -343,7 +365,6 @@ const initializePaystackPayment = async () => {
                     </div>
                   </div>
 
-                  {/* Return & Refund Policy */}
                   <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -361,7 +382,6 @@ const initializePaystackPayment = async () => {
                     </div>
                   </div>
 
-                  {/* Contact Seller Note */}
                   <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -377,7 +397,6 @@ const initializePaystackPayment = async () => {
                     </div>
                   </div>
 
-                  {/* Summary Note */}
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-xs text-gray-600 text-center">
                       By proceeding with payment, you agree to all the policies above.
@@ -404,9 +423,9 @@ const initializePaystackPayment = async () => {
               <div className="mb-4 p-3 bg-orange-50 rounded-lg">
                 <div className="flex items-center gap-2 text-sm text-orange-700 mb-1">
                   <Truck className="w-4 h-4" />
-                  <span className="font-medium">Delivery to: {buyerLocation.city || 'Not selected'}</span>
+                  <span className="font-medium">Delivering to: {buyerLocation.neighborhood || 'Not selected'}</span>
                 </div>
-                {!buyerLocation.city && <p className="text-xs text-orange-600 mt-1">Please set your delivery location first</p>}
+                {!buyerLocation.neighborhood && <p className="text-xs text-orange-600 mt-1">Please set your delivery location first</p>}
               </div>
 
               {/* Estimated Timeline Summary */}
@@ -436,7 +455,7 @@ const initializePaystackPayment = async () => {
               
               <button 
                 onClick={initializePaystackPayment} 
-                disabled={processing || addresses.length === 0 || !buyerLocation.city}
+                disabled={processing || addresses.length === 0 || !buyerLocation.neighborhood}
                 className="w-full py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {processing ? <><Loader className="w-5 h-5 animate-spin" />Processing...</> : `Pay ${formatPrice(checkoutTotals.total)}`}
@@ -445,11 +464,10 @@ const initializePaystackPayment = async () => {
               {addresses.length === 0 && (
                 <p className="text-xs text-center mt-4 text-red-500">Please add a delivery address to continue</p>
               )}
-              {!buyerLocation.city && (
-                <p className="text-xs text-center mt-4 text-orange-500">Please set your delivery location first</p>
+              {!buyerLocation.neighborhood && (
+                <p className="text-xs text-center mt-4 text-orange-500">Please set your delivery location (including neighborhood) first</p>
               )}
               
-              {/* Penalty Note */}
               <p className="text-xs text-gray-400 text-center mt-4">
                 <AlertCircle className="w-3 h-3 inline mr-1" />
                 5% penalty fee applies to cancellations and refunds
