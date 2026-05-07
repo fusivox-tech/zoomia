@@ -13,6 +13,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [expandingZones, setExpandingZones] = useState(false);
   const [formData, setFormData] = useState({
@@ -412,6 +413,8 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       showError('Please add at least one delivery zone');
       return;
     }
+    
+    setSavingConfig(true);
 
     try {
       const token = localStorage.getItem('token');
@@ -440,6 +443,8 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
     } catch (error) {
       console.error('Error saving config:', error);
       showError(error.response?.data?.message || 'Failed to save configuration');
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -1195,9 +1200,10 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                 <button
                   type="button"
                   onClick={saveConfig}
-                  className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition"
+                  className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={savingConfig}
                 >
-                  {editingConfig ? 'Update Configuration' : 'Create Configuration'}
+                  {savingConfig ? 'saving...' : ? editingConfig ? 'Update Configuration' : 'Create Configuration'}
                 </button>
                 <button
                   type="button"
