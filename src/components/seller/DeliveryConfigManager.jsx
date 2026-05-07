@@ -795,6 +795,17 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   >
                     Add A Whole State
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoneType('nationwide')}
+                    className={`px-3 py-1 text-sm rounded-lg transition ${
+                      zoneType === 'nationwide'
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Add Nationwide
+                  </button>
                 </div>
 
                 {/* Single Neighborhood Selection */}
