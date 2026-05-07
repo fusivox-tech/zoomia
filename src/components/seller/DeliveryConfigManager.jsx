@@ -667,7 +667,7 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  placeholder="e.g., Standard Delivery, Express Delivery"
+                  placeholder="e.g. Lightweight Products, Machines etc."
                 />
               </div>
 
