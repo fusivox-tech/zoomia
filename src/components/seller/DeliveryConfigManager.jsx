@@ -1,57 +1,79 @@
-import { useState, useEffect } from 'react';
+// frontend/components/DeliveryConfigManager.jsx
+
+import { useState, useEffect, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
-import { 
-  Truck, Plus, X, MapPin, Globe, Layers, Edit2, Trash2, 
-  Star, Copy, Check, AlertCircle, ChevronDown, ChevronUp,
-  Tag, Percent, DollarSign, Loader, Building2
+
+import {
+  Truck,
+  Plus,
+  X,
+  MapPin,
+  Globe,
+  Layers,
+  Edit2,
+  Trash2,
+  Star,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Loader,
+  Building2
 } from 'lucide-react';
 
-const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
+const DEFAULT_DISCOUNT = {
+  enabled: false,
+  minQuantity: 2,
+  discountType: 'percentage',
+  discountValue: 0,
+  appliesTo: 'delivery'
+};
+
+const DeliveryConfigManager = ({
+  onConfigSelected,
+  selectedConfigId
+}) => {
   const { showSuccess, showError } = useData();
+
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [showModal, setShowModal] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+
   const [editingConfig, setEditingConfig] = useState(null);
+
   const [expandingZones, setExpandingZones] = useState(false);
+
+  const [expandedZone, setExpandedZone] = useState(null);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     isDefault: false,
     zones: [],
-    bulkDiscounts: {
-      enabled: false,
-      minQuantity: 2,
-      discountType: 'percentage',
-      discountValue: 0,
-      appliesTo: 'delivery'
-    }
+    bulkDiscounts: DEFAULT_DISCOUNT
   });
-  
-  // Form states for adding zones
+
+  // Zone form
   const [zoneType, setZoneType] = useState('single');
+
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('');
+
   const [zonePrice, setZonePrice] = useState('');
-  const [zoneDiscount, setZoneDiscount] = useState({
-    enabled: false,
-    minQuantity: 2,
-    discountType: 'percentage',
-    discountValue: 0,
-    appliesTo: 'delivery'
-  });
-  
-  // Data for dropdowns
+
+  const [zoneDiscount, setZoneDiscount] = useState(DEFAULT_DISCOUNT);
+
+  // Dropdown data
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
   const [neighborhoods, setNeighborhoods] = useState([]);
+
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingNeighborhoods, setLoadingNeighborhoods] = useState(false);
-  
-  const [expandedZone, setExpandedZone] = useState(null);
 
   useEffect(() => {
     fetchConfigs();
@@ -61,27 +83,41 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
   useEffect(() => {
     if (selectedState) {
       fetchCities(selectedState);
+    } else {
+      setCities([]);
+      setSelectedCity('');
     }
   }, [selectedState]);
 
   useEffect(() => {
     if (selectedState && selectedCity) {
       fetchNeighborhoods(selectedState, selectedCity);
+    } else {
+      setNeighborhoods([]);
+      setSelectedNeighborhood('');
     }
-  }, [selectedCity]);
+  }, [selectedState, selectedCity]);
+
+  const authHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem('token')}`
+  });
 
   const fetchConfigs = async () => {
     setLoading(true);
+
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/delivery-configs`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(
+        `${API_BASE_URL}/delivery-configs`,
+        {
+          headers: authHeaders()
+        }
+      );
+
       if (response.data.success) {
-        setConfigs(response.data.data);
+        setConfigs(response.data.data || []);
       }
     } catch (error) {
-      console.error('Error fetching delivery configs:', error);
+      console.error(error);
       showError('Failed to load delivery configurations');
     } finally {
       setLoading(false);
@@ -90,24 +126,31 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
 
   const fetchStates = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/cities/states`);
+      const response = await axios.get(
+        `${API_BASE_URL}/cities/states`
+      );
+
       if (response.data.success) {
-        setStates(response.data.data);
+        setStates(response.data.data || []);
       }
     } catch (error) {
-      console.error('Error fetching states:', error);
+      console.error(error);
     }
   };
 
   const fetchCities = async (state) => {
     setLoadingCities(true);
+
     try {
-      const response = await axios.get(`${API_BASE_URL}/cities/state/${encodeURIComponent(state)}`);
+      const response = await axios.get(
+        `${API_BASE_URL}/cities/state/${encodeURIComponent(state)}`
+      );
+
       if (response.data.success) {
-        setCities(response.data.data);
+        setCities(response.data.data || []);
       }
     } catch (error) {
-      console.error('Error fetching cities:', error);
+      console.error(error);
     } finally {
       setLoadingCities(false);
     }
@@ -115,334 +158,372 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
 
   const fetchNeighborhoods = async (state, city) => {
     setLoadingNeighborhoods(true);
+
     try {
-      const response = await axios.get(`${API_BASE_URL}/cities/${encodeURIComponent(state)}/${encodeURIComponent(city)}/suburbs`);
+      const response = await axios.get(
+        `${API_BASE_URL}/cities/${encodeURIComponent(
+          state
+        )}/${encodeURIComponent(city)}/suburbs`
+      );
+
       if (response.data.success) {
-        setNeighborhoods(response.data.data);
+        setNeighborhoods(response.data.data || []);
       }
     } catch (error) {
-      console.error('Error fetching neighborhoods:', error);
+      console.error(error);
     } finally {
       setLoadingNeighborhoods(false);
     }
   };
 
-  // Add a single neighborhood zone
+  const zoneExists = (zone) => {
+    return formData.zones.some(
+      (z) =>
+        z.type === 'neighborhood' &&
+        z.state === zone.state &&
+        z.city === zone.city &&
+        z.neighborhood === zone.neighborhood
+    );
+  };
+
+  const createZoneObject = ({
+    state,
+    city,
+    neighborhood,
+    price
+  }) => ({
+    id: crypto.randomUUID(),
+    type: 'neighborhood',
+    state,
+    city,
+    neighborhood,
+    price: Number(price),
+    discountOnQuantity: {
+      ...zoneDiscount
+    }
+  });
+
+  const resetZoneFields = () => {
+    setZonePrice('');
+    setSelectedNeighborhood('');
+    setZoneDiscount(DEFAULT_DISCOUNT);
+  };
+
+  // SINGLE NEIGHBORHOOD
   const addSingleNeighborhood = () => {
-    if (!selectedState || !selectedCity || !selectedNeighborhood) {
-      showError('Please select state, city, and neighborhood');
+    if (
+      !selectedState ||
+      !selectedCity ||
+      !selectedNeighborhood
+    ) {
+      showError(
+        'Please select state, city and neighborhood'
+      );
       return;
     }
-    if (!zonePrice || zonePrice <= 0) {
+
+    if (!zonePrice || Number(zonePrice) <= 0) {
       showError('Please enter a valid delivery price');
       return;
     }
 
-    const newZone = {
-      id: Date.now(),
-      type: 'neighborhood',
+    const zone = createZoneObject({
       state: selectedState,
       city: selectedCity,
       neighborhood: selectedNeighborhood,
-      price: parseFloat(zonePrice),
-      discountOnQuantity: { ...zoneDiscount }
-    };
+      price: zonePrice
+    });
 
-    // Check for duplicate
-    const isDuplicate = formData.zones.some(zone => 
-      zone.type === 'neighborhood' &&
-      zone.state === newZone.state &&
-      zone.city === newZone.city &&
-      zone.neighborhood === newZone.neighborhood
-    );
-
-    if (isDuplicate) {
-      showError('This neighborhood already exists in this configuration');
+    if (zoneExists(zone)) {
+      showError(
+        'This neighborhood already exists in this configuration'
+      );
       return;
     }
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      zones: [...prev.zones, newZone]
+      zones: [...prev.zones, zone]
     }));
 
-    // Reset form
-    setZonePrice('');
-    setSelectedNeighborhood('');
-    setZoneDiscount({
-      enabled: false,
-      minQuantity: 2,
-      discountType: 'percentage',
-      discountValue: 0,
-      appliesTo: 'delivery'
-    });
-    
+    resetZoneFields();
+
     showSuccess('Neighborhood added successfully');
   };
 
-  // Add all neighborhoods in a city
+  // CITY
   const addCityNeighborhoods = async () => {
     if (!selectedState || !selectedCity) {
       showError('Please select state and city');
       return;
     }
-    if (!zonePrice || zonePrice <= 0) {
+
+    if (!zonePrice || Number(zonePrice) <= 0) {
       showError('Please enter a valid delivery price');
       return;
     }
 
     setExpandingZones(true);
+
     try {
-      const response = await axios.get(`${API_BASE_URL}/cities/${encodeURIComponent(selectedState)}/${encodeURIComponent(selectedCity)}/suburbs`);
-      
-      if (response.data.success && response.data.data.length > 0) {
-        const neighborhoodsInCity = response.data.data;
-        const existingNeighborhoods = new Set(
-          formData.zones
-            .filter(z => z.type === 'neighborhood' && z.state === selectedState && z.city === selectedCity)
-            .map(z => z.neighborhood)
+      const response = await axios.get(
+        `${API_BASE_URL}/cities/${encodeURIComponent(
+          selectedState
+        )}/${encodeURIComponent(selectedCity)}/suburbs`
+      );
+
+      const suburbs = response.data?.data || [];
+
+      const newZones = suburbs
+        .map((suburb) =>
+          createZoneObject({
+            state: selectedState,
+            city: selectedCity,
+            neighborhood: suburb,
+            price: zonePrice
+          })
+        )
+        .filter((zone) => !zoneExists(zone));
+
+      if (!newZones.length) {
+        showError(
+          `All neighborhoods in ${selectedCity} already exist`
         );
-        
-        const newZones = [];
-        for (const neighborhood of neighborhoodsInCity) {
-          if (!existingNeighborhoods.has(neighborhood)) {
-            newZones.push({
-              id: Date.now() + Math.random(),
-              type: 'neighborhood',
-              state: selectedState,
-              city: selectedCity,
-              neighborhood: neighborhood,
-              price: parseFloat(zonePrice),
-              discountOnQuantity: { ...zoneDiscount }
-            });
-          }
-        }
-        
-        if (newZones.length === 0) {
-          showError(`All neighborhoods in ${selectedCity} already have delivery zones`);
-        } else {
-          setFormData(prev => ({
-            ...prev,
-            zones: [...prev.zones, ...newZones]
-          }));
-          showSuccess(`Added ${newZones.length} neighborhoods in ${selectedCity}, ${selectedState}`);
-        }
-      } else {
-        showError(`No neighborhoods found for ${selectedCity}, ${selectedState}`);
+        return;
       }
+
+      setFormData((prev) => ({
+        ...prev,
+        zones: [...prev.zones, ...newZones]
+      }));
+
+      showSuccess(
+        `${newZones.length} neighborhoods added`
+      );
     } catch (error) {
-      console.error('Error adding city neighborhoods:', error);
+      console.error(error);
       showError('Failed to add city neighborhoods');
     } finally {
       setExpandingZones(false);
-      setSelectedCity('');
-      setZonePrice('');
+      resetZoneFields();
     }
   };
 
-  // Add all neighborhoods in a state
+  // STATE
   const addStateNeighborhoods = async () => {
     if (!selectedState) {
       showError('Please select a state');
       return;
     }
-    if (!zonePrice || zonePrice <= 0) {
+
+    if (!zonePrice || Number(zonePrice) <= 0) {
       showError('Please enter a valid delivery price');
       return;
     }
 
     setExpandingZones(true);
+
     try {
-      // Fetch all cities in the state first
-      const citiesResponse = await axios.get(`${API_BASE_URL}/cities/state/${encodeURIComponent(selectedState)}`);
-      
-      if (!citiesResponse.data.success || citiesResponse.data.data.length === 0) {
-        showError(`No cities found for ${selectedState}`);
-        setExpandingZones(false);
+      const citiesResponse = await axios.get(
+        `${API_BASE_URL}/cities/state/${encodeURIComponent(
+          selectedState
+        )}`
+      );
+
+      const stateCities = citiesResponse.data?.data || [];
+
+      let allZones = [];
+
+      for (const city of stateCities) {
+        const suburbsResponse = await axios.get(
+          `${API_BASE_URL}/cities/${encodeURIComponent(
+            selectedState
+          )}/${encodeURIComponent(city)}/suburbs`
+        );
+
+        const suburbs = suburbsResponse.data?.data || [];
+
+        const cityZones = suburbs.map((suburb) =>
+          createZoneObject({
+            state: selectedState,
+            city,
+            neighborhood: suburb,
+            price: zonePrice
+          })
+        );
+
+        allZones.push(...cityZones);
+      }
+
+      allZones = allZones.filter(
+        (zone) => !zoneExists(zone)
+      );
+
+      if (!allZones.length) {
+        showError(
+          `All neighborhoods in ${selectedState} already exist`
+        );
         return;
       }
-      
-      const citiesInState = citiesResponse.data.data;
-      let totalNewZones = 0;
-      let updatedZones = [...formData.zones];
-      
-      for (const city of citiesInState) {
-        const neighborhoodsResponse = await axios.get(`${API_BASE_URL}/cities/${encodeURIComponent(selectedState)}/${encodeURIComponent(city)}/suburbs`);
-        
-        if (neighborhoodsResponse.data.success && neighborhoodsResponse.data.data.length > 0) {
-          const existingNeighborhoods = new Set(
-            updatedZones
-              .filter(z => z.type === 'neighborhood' && z.state === selectedState && z.city === city)
-              .map(z => z.neighborhood)
-          );
-          
-          const newZones = neighborhoodsResponse.data.data
-            .filter(neighborhood => !existingNeighborhoods.has(neighborhood))
-            .map(neighborhood => ({
-              id: Date.now() + Math.random(),
-              type: 'neighborhood',
-              state: selectedState,
-              city: city,
-              neighborhood: neighborhood,
-              price: parseFloat(zonePrice),
-              discountOnQuantity: { ...zoneDiscount }
-            }));
-          
-          if (newZones.length > 0) {
-            updatedZones = [...updatedZones, ...newZones];
-            totalNewZones += newZones.length;
-          }
-        }
-      }
-      
-      if (totalNewZones === 0) {
-        showError(`All neighborhoods in ${selectedState} already have delivery zones`);
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          zones: updatedZones
-        }));
-        showSuccess(`Added ${totalNewZones} neighborhoods across ${selectedState}`);
-      }
+
+      setFormData((prev) => ({
+        ...prev,
+        zones: [...prev.zones, ...allZones]
+      }));
+
+      showSuccess(
+        `${allZones.length} neighborhoods added`
+      );
     } catch (error) {
-      console.error('Error adding state neighborhoods:', error);
+      console.error(error);
       showError('Failed to add state neighborhoods');
     } finally {
       setExpandingZones(false);
-      setSelectedState('');
-      setZonePrice('');
+      resetZoneFields();
     }
   };
 
-  // Add all neighborhoods in Nigeria (nationwide)
+  // NATIONWIDE
   const addNationwideNeighborhoods = async () => {
-    if (!zonePrice || zonePrice <= 0) {
+    if (!zonePrice || Number(zonePrice) <= 0) {
       showError('Please enter a valid delivery price');
       return;
     }
 
     setExpandingZones(true);
+
     try {
-      let totalNewZones = 0;
-      let updatedZones = [...formData.zones];
-      
+      let allZones = [];
+
       for (const state of states) {
-        const citiesResponse = await axios.get(`${API_BASE_URL}/cities/state/${encodeURIComponent(state)}`);
-        
-        if (citiesResponse.data.success && citiesResponse.data.data.length > 0) {
-          for (const city of citiesResponse.data.data) {
-            const neighborhoodsResponse = await axios.get(`${API_BASE_URL}/cities/${encodeURIComponent(state)}/${encodeURIComponent(city)}/suburbs`);
-            
-            if (neighborhoodsResponse.data.success && neighborhoodsResponse.data.data.length > 0) {
-              const existingNeighborhoods = new Set(
-                updatedZones
-                  .filter(z => z.type === 'neighborhood' && z.state === state && z.city === city)
-                  .map(z => z.neighborhood)
-              );
-              
-              const newZones = neighborhoodsResponse.data.data
-                .filter(neighborhood => !existingNeighborhoods.has(neighborhood))
-                .map(neighborhood => ({
-                  id: Date.now() + Math.random(),
-                  type: 'neighborhood',
-                  state: state,
-                  city: city,
-                  neighborhood: neighborhood,
-                  price: parseFloat(zonePrice),
-                  discountOnQuantity: { ...zoneDiscount }
-                }));
-              
-              if (newZones.length > 0) {
-                updatedZones = [...updatedZones, ...newZones];
-                totalNewZones += newZones.length;
-              }
-            }
-          }
+        const citiesResponse = await axios.get(
+          `${API_BASE_URL}/cities/state/${encodeURIComponent(
+            state
+          )}`
+        );
+
+        const stateCities = citiesResponse.data?.data || [];
+
+        for (const city of stateCities) {
+          const suburbsResponse = await axios.get(
+            `${API_BASE_URL}/cities/${encodeURIComponent(
+              state
+            )}/${encodeURIComponent(city)}/suburbs`
+          );
+
+          const suburbs = suburbsResponse.data?.data || [];
+
+          const cityZones = suburbs.map((suburb) =>
+            createZoneObject({
+              state,
+              city,
+              neighborhood: suburb,
+              price: zonePrice
+            })
+          );
+
+          allZones.push(...cityZones);
         }
       }
-      
-      if (totalNewZones === 0) {
-        showError('All neighborhoods already have delivery zones configured');
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          zones: updatedZones
-        }));
-        showSuccess(`Added ${totalNewZones} neighborhoods across Nigeria`);
+
+      allZones = allZones.filter(
+        (zone) => !zoneExists(zone)
+      );
+
+      if (!allZones.length) {
+        showError(
+          'All neighborhoods already exist in configuration'
+        );
+        return;
       }
+
+      setFormData((prev) => ({
+        ...prev,
+        zones: [...prev.zones, ...allZones]
+      }));
+
+      showSuccess(
+        `${allZones.length} neighborhoods added nationwide`
+      );
     } catch (error) {
-      console.error('Error adding nationwide neighborhoods:', error);
-      showError('Failed to add nationwide delivery');
+      console.error(error);
+      showError('Failed to add nationwide neighborhoods');
     } finally {
       setExpandingZones(false);
-      setZonePrice('');
+      resetZoneFields();
     }
   };
 
-  const removeZone = (zoneId) => {
-    setFormData(prev => ({
+  const removeZone = (id) => {
+    setFormData((prev) => ({
       ...prev,
-      zones: prev.zones.filter(zone => zone.id !== zoneId)
+      zones: prev.zones.filter((z) => z.id !== id)
     }));
   };
 
-  const updateZonePrice = (zoneId, price) => {
-    setFormData(prev => ({
+  const updateZonePrice = (id, price) => {
+    setFormData((prev) => ({
       ...prev,
-      zones: prev.zones.map(zone =>
-        zone.id === zoneId ? { ...zone, price: parseFloat(price) } : zone
-      )
-    }));
-  };
-
-  const updateZoneDiscount = (zoneId, discountData) => {
-    setFormData(prev => ({
-      ...prev,
-      zones: prev.zones.map(zone =>
-        zone.id === zoneId ? { ...zone, discountOnQuantity: discountData } : zone
+      zones: prev.zones.map((zone) =>
+        zone.id === id
+          ? {
+              ...zone,
+              price: Number(price)
+            }
+          : zone
       )
     }));
   };
 
   const saveConfig = async () => {
     if (!formData.name.trim()) {
-      showError('Please enter a configuration name');
+      showError('Configuration name is required');
       return;
     }
-    if (formData.zones.length === 0) {
-      showError('Please add at least one delivery zone');
-      return;
-    }
-    
+
     setSavingConfig(true);
 
     try {
-      const token = localStorage.getItem('token');
       let response;
-      
+
       if (editingConfig) {
         response = await axios.put(
           `${API_BASE_URL}/delivery-configs/${editingConfig._id}`,
           formData,
-          { headers: { Authorization: `Bearer ${token}` } }
+          {
+            headers: authHeaders()
+          }
         );
       } else {
         response = await axios.post(
           `${API_BASE_URL}/delivery-configs`,
           formData,
-          { headers: { Authorization: `Bearer ${token}` } }
+          {
+            headers: authHeaders()
+          }
         );
       }
-      
+
       if (response.data.success) {
-        showSuccess(editingConfig ? 'Configuration updated!' : 'Configuration created!');
-        setShowModal(false);
-        resetForm();
+        showSuccess(
+          editingConfig
+            ? 'Configuration updated'
+            : 'Configuration created'
+        );
+
         fetchConfigs();
+
+        setShowModal(false);
+
+        resetForm();
       }
     } catch (error) {
-      console.error('Error saving config:', error);
-      showError(error.response?.data?.message || 'Failed to save configuration');
+      console.error(error);
+
+      showError(
+        error.response?.data?.message ||
+          'Failed to save configuration'
+      );
     } finally {
       setSavingConfig(false);
     }
@@ -450,113 +531,119 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
 
   const setAsDefault = async (configId) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await axios.put(
         `${API_BASE_URL}/delivery-configs/${configId}/set-default`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: authHeaders()
+        }
       );
+
       if (response.data.success) {
-        showSuccess('Default configuration updated');
         fetchConfigs();
+        showSuccess('Default configuration updated');
       }
     } catch (error) {
-      console.error('Error setting default:', error);
-      showError('Failed to set as default');
+      console.error(error);
+      showError('Failed to set default config');
     }
   };
 
   const deleteConfig = async (configId) => {
-    if (!window.confirm('Are you sure you want to delete this configuration? This cannot be undone.')) return;
-    
+    const confirmed = window.confirm(
+      'Delete this configuration?'
+    );
+
+    if (!confirmed) return;
+
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.delete(`${API_BASE_URL}/delivery-configs/${configId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.delete(
+        `${API_BASE_URL}/delivery-configs/${configId}`,
+        {
+          headers: authHeaders()
+        }
+      );
+
       if (response.data.success) {
-        showSuccess('Configuration deleted');
         fetchConfigs();
+        showSuccess('Configuration deleted');
       }
     } catch (error) {
-      console.error('Error deleting config:', error);
+      console.error(error);
       showError('Failed to delete configuration');
     }
   };
 
   const editConfig = (config) => {
     setEditingConfig(config);
+
     setFormData({
-      name: config.name,
+      name: config.name || '',
       description: config.description || '',
       isDefault: config.isDefault || false,
-      zones: config.zones.map((zone, index) => ({ ...zone, id: Date.now() + index })),
-      bulkDiscounts: config.bulkDiscounts || {
-        enabled: false,
-        minQuantity: 2,
-        discountType: 'percentage',
-        discountValue: 0,
-        appliesTo: 'delivery'
-      }
+      zones: (config.zones || []).map((zone) => ({
+        ...zone,
+        id: crypto.randomUUID()
+      })),
+      bulkDiscounts:
+        config.bulkDiscounts || DEFAULT_DISCOUNT
     });
+
     setShowModal(true);
   };
 
   const resetForm = () => {
     setEditingConfig(null);
+
     setFormData({
       name: '',
       description: '',
       isDefault: false,
       zones: [],
-      bulkDiscounts: {
-        enabled: false,
-        minQuantity: 2,
-        discountType: 'percentage',
-        discountValue: 0,
-        appliesTo: 'delivery'
-      }
+      bulkDiscounts: DEFAULT_DISCOUNT
     });
+
     setZoneType('single');
+
     setSelectedState('');
     setSelectedCity('');
     setSelectedNeighborhood('');
+
     setZonePrice('');
+
+    setZoneDiscount(DEFAULT_DISCOUNT);
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN'
-    }).format(price);
-  };
+  const zonesByState = useMemo(() => {
+    return formData.zones.reduce((acc, zone) => {
+      if (!acc[zone.state]) {
+        acc[zone.state] = {};
+      }
 
-  // Group zones by state and city for better display
-  const zonesByState = formData.zones.reduce((acc, zone) => {
-    if (!acc[zone.state]) {
-      acc[zone.state] = {};
-    }
-    if (!acc[zone.state][zone.city]) {
-      acc[zone.state][zone.city] = [];
-    }
-    acc[zone.state][zone.city].push(zone);
-    return acc;
-  }, {});
+      if (!acc[zone.state][zone.city]) {
+        acc[zone.state][zone.city] = [];
+      }
+
+      acc[zone.state][zone.city].push(zone);
+
+      return acc;
+    }, {});
+  }, [formData.zones]);
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 mb-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Truck className="w-5 h-5 text-orange-500" />
-          <h3 className="text-lg font-semibold">Delivery Configuration</h3>
-        </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">
+          Delivery Configuration
+        </h3>
+
         <button
           type="button"
           onClick={() => {
             resetForm();
             setShowModal(true);
           }}
-          className="flex items-center gap-1 px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
         >
           <Plus className="w-4 h-4" />
           New Config
@@ -564,83 +651,93 @@ const DeliveryConfigManager = ({ onConfigSelected, selectedConfigId }) => {
       </div>
 
       {loading ? (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-          <p className="text-sm text-gray-500 mt-2">Loading configurations...</p>
+        <div className="py-10 text-center">
+          <Loader className="w-8 h-8 animate-spin mx-auto text-orange-500" />
         </div>
       ) : configs.length === 0 ? (
-        <div className="text-center py-8 bg-gray-50 rounded-lg">
-          <Truck className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-500">No delivery configurations yet</p>
-          <p className="text-xs text-gray-400 mt-1">Create a configuration to set delivery prices for neighborhoods</p>
+        <div className="bg-gray-50 rounded-xl p-10 text-center">
+          <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+
+          <p className="text-gray-500">
+            No delivery configurations yet
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
           {configs.map((config) => (
             <div
               key={config._id}
-              className={`border rounded-lg p-3 cursor-pointer transition ${
+              onClick={() =>
+                onConfigSelected?.(config._id, config)
+              }
+              className={`border rounded-xl p-4 cursor-pointer transition ${
                 selectedConfigId === config._id
                   ? 'border-orange-500 bg-orange-50'
                   : 'border-gray-200 hover:border-orange-300'
               }`}
-              onClick={() => onConfigSelected?.(config._id, config)}
             >
               <div className="flex justify-between items-start">
-                <div className="flex-1">
+                <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-gray-900">{config.name}</h4>
+                    <h4 className="font-semibold">
+                      {config.name}
+                    </h4>
+
                     {config.isDefault && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full flex items-center gap-1">
                         <Star className="w-3 h-3" />
                         Default
                       </span>
                     )}
+
                     {selectedConfigId === config._id && (
-                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full flex items-center gap-1">
                         <Check className="w-3 h-3" />
                         Selected
                       </span>
                     )}
                   </div>
+
                   {config.description && (
-                    <p className="text-xs text-gray-500 mt-1">{config.description}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {config.description}
+                    </p>
                   )}
+
                   <p className="text-xs text-gray-400 mt-1">
-                    {config.zones.length} neighborhood(s) configured
+                    {config.zones?.length || 0} zones
                   </p>
                 </div>
+
                 <div className="flex items-center gap-1">
                   <button
-                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       editConfig(config);
                     }}
-                    className="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                    className="p-2 hover:bg-blue-50 rounded-lg text-blue-500"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
+
                   {!config.isDefault && (
                     <button
-                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setAsDefault(config._id);
                       }}
-                      className="p-1 text-green-500 hover:bg-green-50 rounded"
-                      title="Set as default"
+                      className="p-2 hover:bg-green-50 rounded-lg text-green-500"
                     >
                       <Star className="w-4 h-4" />
                     </button>
                   )}
+
                   <button
-                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteConfig(config._id);
                     }}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded"
+                    className="p-2 hover:bg-red-50 rounded-lg text-red-500"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
